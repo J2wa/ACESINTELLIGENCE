@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { DB, stmt, one, all, id, sha, token, hashPassword, checkPassword, cookie, setCookie, session, loginResponse, fail, originCheck, audit, config, constantEqual } from './auth';
-import { parseDuration, duration, day, midnight, weekStart, addDays, splitDays, STATUSES, csv, xlsx } from './core.mjs';
+import { parseDuration, allocateTaskTime, duration, day, midnight, weekStart, addDays, splitDays, STATUSES, csv, xlsx } from './core.mjs';
 import { syncTasks } from './sheets';
 const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' } });
 const name = z.string().trim().min(1).max(150), password = z.string().min(12, 'Use at least 12 characters.').max(128), uid = z.string().min(1).max(100), date = z.string().refine(v => { try {
@@ -166,10 +166,15 @@ export async function handle(req: Request) {
             if (b.minutes > 0) {
                 if (old)
                     fail('Edit working time in Timesheets to avoid double counting.');
-                if (!b.start_ms || day(b.start_ms) !== b.date || b.start_ms + b.minutes * 60000 > now + 60000)
-                    fail('Choose a valid working start time on the task date, ending no later than now.');
-                await editableWeek(u.id, b.start_ms!, b.start_ms! + b.minutes * 60000);
-                statements.push(stmt("INSERT INTO time_entries(id,project_id,user_id,task_id,start_ms,end_ms,rate_cents,source,notes,created_at) VALUES(?,?,?,?,?,?,?,'task','',?)", id(), b.project_id, u.id, taskId, b.start_ms!, b.start_ms! + b.minutes * 60000, p.rate_cents, now));
+                const dateStart = midnight(b.date);
+                const existing = await all('SELECT start_ms,end_ms FROM time_entries WHERE user_id=? AND start_ms<? AND COALESCE(end_ms,?)>?', u.id, dateStart + 86400000, now, dateStart);
+                let slots;
+                try { slots = allocateTaskTime(b.date, b.minutes, existing, now); }
+                catch (error) { fail((error as Error).message); }
+                for (const slot of slots!) {
+                    await editableWeek(u.id, slot.start_ms, slot.end_ms);
+                    statements.push(stmt("INSERT INTO time_entries(id,project_id,user_id,task_id,start_ms,end_ms,rate_cents,source,notes,created_at) VALUES(?,?,?,?,?,?,?,'task',?,?)", id(), b.project_id, u.id, taskId, slot.start_ms, slot.end_ms, p.rate_cents, 'Task minutes: automatically allocated; not exact clock times.', now));
+                }
             }
             statements.push(audit(u, 'task_entries', taskId, old ? 'updated' : 'created', old, after), queue(taskId));
             await DB().batch(statements);
