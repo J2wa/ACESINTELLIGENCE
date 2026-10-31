@@ -54,6 +54,28 @@ assert.equal(afterEdit.hours_status,'PENDING');
 await req('task-hours',{task_id:minutesTask,signature:reviewTask.hours_signature,action:'approve'},admin,409);
 await req('task-hours',{task_id:minutesTask,signature:afterEdit.hours_signature,action:'return'},admin);
 assert.equal((await req('workspace',null,employee)).j.tasks.find(t=>t.id===minutesTask).hours_status,'RETURNED');
+// Bulk hours approval checks current working-time signatures for every task.
+const reviewSnapshot=(await req('workspace',null,admin)).j;
+const reviewTargets=[minutesTask,task].map(taskId=>({task_id:taskId,signature:reviewSnapshot.tasks.find(t=>t.id===taskId).hours_signature}));
+await req('task-hours/bulk',{tasks:reviewTargets},employee,403);
+await req('task-hours/bulk',{tasks:[]},admin,400);
+await req('task-hours/bulk',{tasks:[reviewTargets[0],reviewTargets[0]]},admin,400);
+await req('task-hours/bulk',{tasks:[reviewTargets[0],{...reviewTargets[1],signature:'stale'}]},admin,409);
+assert.equal((await req('workspace',null,admin)).j.tasks.find(t=>t.id===minutesTask).hours_status,'RETURNED');
+const bulkReview=await req('task-hours/bulk',{tasks:reviewTargets},admin);
+assert.equal(bulkReview.j.approved,2);
+const reviewed=(await req('workspace',null,admin)).j;
+assert(reviewTargets.every(target=>reviewed.tasks.find(t=>t.id===target.task_id).hours_status==='APPROVED'));
+assert.equal(reviewed.tasks.find(t=>t.id===minutesTask).status,'PENDING');
+const reviewAuditCount=(await db.prepare("SELECT COUNT(*) count FROM audit_log WHERE entity='task_hours' AND action='approve'").first()).count;
+const repeatReview=await req('task-hours/bulk',{tasks:reviewTargets},admin);
+assert.equal(repeatReview.j.approved,0);assert.equal(repeatReview.j.already_approved,2);
+assert.equal((await db.prepare("SELECT COUNT(*) count FROM audit_log WHERE entity='task_hours' AND action='approve'").first()).count,reviewAuditCount);
+// Edits after approval invalidate the review rather than approving changed time.
+await req('time',{id:changed.id,project_id:p,task_id:minutesTask,start_ms:changed.start_ms+120000,end_ms:changed.end_ms},employee);
+assert.equal((await req('workspace',null,admin)).j.tasks.find(t=>t.id===minutesTask).hours_status,'PENDING');
+await req('task-hours/bulk',{tasks:reviewTargets},admin,409);
+checks++;
 // Change the project model, while earlier time keeps its working-hour basis.
 await req('projects',{id:p,name:'QA Project',description:'',status:'active',hourly_target:40,rate_cents:5000,pay_basis:'TASK',color:'#647c45',employee_ids:[employeeId]},admin);
 const perTask=(await req('tasks',{...body,video_id:'PER-TASK',minutes:0},employee)).j.id;
@@ -93,6 +115,18 @@ for(const task of bulkTasks){assert(await db.prepare("SELECT id FROM audit_log W
 await req('tasks/bulk',{tasks:[{...bulkBase,video_id:'000BULK-A'}]},employee,409);
 const maxUpload=await req('tasks/bulk',{tasks:Array.from({length:100},(_,i)=>({...bulkBase,video_id:`BULK-LIMIT-${String(i).padStart(3,'0')}`,minutes:0}))},employee);
 assert.equal(maxUpload.j.count,100);checks++;
+// Exercise a full 100-task approval batch, with a distinct linked minute for each task.
+await req('tasks/bulk',{tasks:Array.from({length:100},(_,i)=>({...bulkBase,video_id:`HOURS-LIMIT-${String(i).padStart(3,'0')}`,minutes:1}))},employee);
+const hoursLimitTasks=(await req('workspace',null,admin)).j.tasks.filter(t=>t.video_id.startsWith('HOURS-LIMIT-'));
+const hoursLimitPayload={tasks:hoursLimitTasks.map(t=>({task_id:t.id,signature:t.hours_signature}))};
+assert.equal(hoursLimitPayload.tasks.length,100);
+await req('task-hours/bulk',{tasks:[...hoursLimitPayload.tasks,{task_id:'extra',signature:''}]},admin,400);
+const hoursLimitReview=await req('task-hours/bulk',hoursLimitPayload,admin);assert.equal(hoursLimitReview.j.approved,100);
+assert.equal((await req('workspace',null,employee)).j.tasks.filter(t=>t.video_id.startsWith('HOURS-LIMIT-')&&t.hours_status==='APPROVED').length,100);
+await req('task-hours/bulk',{tasks:[{task_id:perTask,signature:(await req('workspace',null,admin)).j.tasks.find(t=>t.id===perTask).hours_signature}]},admin,400);
+await req('task-hours/bulk',{tasks:[{task_id:'does-not-exist',signature:''}]},admin,404);
+await req('task-hours/bulk',{tasks:hoursLimitPayload.tasks.slice(0,1)},'',401);
+const hoursCsrf=await dispatch(base+'/api/task-hours/bulk',{method:'POST',headers:{Origin:'https://invalid.example','Content-Type':'application/json',Cookie:admin},body:JSON.stringify(hoursLimitPayload)});assert.equal(hoursCsrf.status,403);checks++;
 const unauthBulk=await req('tasks/bulk',{tasks:[bulkBase]},'',401);
 const badOriginBulk=await dispatch(base+'/api/tasks/bulk',{method:'POST',headers:{Origin:'https://other.example','Content-Type':'application/json',Cookie:employee},body:JSON.stringify({tasks:[bulkBase]})});assert.equal(badOriginBulk.status,403);checks++;
 // Single and batch task-status approval preserve data and reject stale or unauthorized requests.
@@ -111,7 +145,10 @@ await req('task-status',statusPayload,admin,409);
 const approvalC=(await req('tasks',{...body,date:approvalDate,video_id:'APPROVAL-C'},employee)).j.id;
 await req('task-status',{tasks:[{id:approvalC,version:1}]},admin);
 assert.equal((await req('workspace',null,employee)).j.tasks.find(t=>t.id===approvalC).status,'APPROVED');
-await req('timer',{action:'start',project_id:p},employee);await req('timer',{action:'start',project_id:p},employee,409);await req('timesheets',{week_start:weekStart(date),action:'submit'},employee,400);await req('timer',{action:'stop'},employee);
+await req('timer',{action:'start',project_id:p,task_id:perTask},employee);
+const runningHoursTask=(await req('workspace',null,admin)).j.tasks.find(t=>t.id===perTask);
+await req('task-hours/bulk',{tasks:[{task_id:perTask,signature:runningHoursTask.hours_signature}]},admin,400);
+await req('timer',{action:'start',project_id:p},employee,409);await req('timesheets',{week_start:weekStart(date),action:'submit'},employee,400);await req('timer',{action:'stop'},employee);
 await req('timesheets',{week_start:weekStart(date),action:'submit'},employee);await req('tasks/bulk',{tasks:[{...body,video_id:'BULK-LOCKED'}]},employee,409);await req('task-status',{tasks:[{id:task,version:2}]},admin,409);await req('time',{project_id:p,start_ms:start-3600000,end_ms:start},employee,409);await req('timesheets',{week_start:weekStart(date),user_id:employeeId,action:'approve'},admin);await req('timesheets',{week_start:weekStart(date),user_id:employeeId,action:'return',comment:'Check hours'},admin);await req('time',{project_id:p,start_ms:start-3600000,end_ms:start},employee);
 const exp=await dispatch(base+'/api/export?format=xlsx',{headers:{Cookie:employee}});assert.equal(exp.status,200);assert.equal((new Uint8Array(await exp.arrayBuffer()))[0],80);checks++;const history=(await req('audit?task='+task,null,employee)).j;assert(history.length>=2);
 const csrf=await dispatch(base+'/api/timer',{method:'POST',headers:{Origin:'https://invalid.example','Content-Type':'application/json',Cookie:employee},body:JSON.stringify({action:'start',project_id:p})});assert.equal(csrf.status,403);checks++;

@@ -260,6 +260,35 @@ export async function handle(req: Request) {
             await safeSync(3);
             return json({ saved: true, message: `${b.tasks.length} task${b.tasks.length === 1 ? '' : 's'} approved.` });
         }
+        if (path === 'task-hours/bulk' && method === 'POST') {
+            admin(u);
+            const b = z.object({ tasks: z.array(z.object({ task_id: uid, signature: z.string().max(100000) }).strict()).min(1).max(100) }).strict().parse(await req.json());
+            const ids = b.tasks.map(task => task.task_id);
+            if (new Set(ids).size !== ids.length) fail('Select each task only once.');
+            const placeholders = ids.map(() => '?').join(',');
+            const [tasks, times, reviews] = await Promise.all([
+                all(`SELECT * FROM task_entries WHERE id IN (${placeholders})`, ...ids),
+                all(`SELECT * FROM time_entries WHERE task_id IN (${placeholders}) ORDER BY id`, ...ids),
+                all(`SELECT * FROM task_hour_reviews WHERE task_id IN (${placeholders})`, ...ids),
+            ]);
+            const statements: any[] = [];
+            let approved = 0, alreadyApproved = 0;
+            for (const selected of b.tasks) {
+                const task = tasks.find(task => task.id === selected.task_id);
+                if (!task) fail('A selected task no longer exists. Refresh before approving hours.', 404);
+                const linked = times.filter(time => time.task_id === task.id);
+                if (!linked.length || linked.some(time => time.end_ms === null) || linked.reduce((sum, time) => sum + time.end_ms - time.start_ms, 0) <= 0) fail(`Task ${task.video_id}: Log hours and stop linked timers before reviewing.`);
+                const signature = hoursSignature(task, linked);
+                if (signature !== selected.signature) fail(`Task ${task.video_id}: Working time changed. Refresh before approving hours.`, 409);
+                const old = reviews.find(review => review.task_id === task.id);
+                if (old?.signature === signature && old.status === 'APPROVED') { alreadyApproved++; continue; }
+                statements.push(stmt("INSERT INTO task_hour_reviews(task_id,signature,status,reviewed_by,reviewed_at) VALUES(?,?,'APPROVED',?,?) ON CONFLICT(task_id) DO UPDATE SET signature=excluded.signature,status=excluded.status,reviewed_by=excluded.reviewed_by,reviewed_at=excluded.reviewed_at", task.id, signature, u.id, now), audit(u, 'task_hours', task.id, 'approve', old, { status: 'APPROVED', signature }), queue(task.id));
+                approved++;
+            }
+            // Validate the complete batch before committing any approvals or audit entries.
+            if (statements.length) { await DB().batch(statements); await safeSync(3); }
+            return json({ saved: true, approved, already_approved: alreadyApproved });
+        }
         if (path === 'task-hours' && method === 'POST') {
             admin(u);
             const b = z.object({ task_id: uid, signature: z.string().max(100000), action: z.enum(['approve', 'return']) }).parse(await req.json());
