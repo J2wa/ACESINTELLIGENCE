@@ -23,3 +23,6 @@ export const paymentTasks = sqliteTable('payment_tasks', { task_id:text('task_id
 export const paymentTimes = sqliteTable('payment_times', { time_entry_id:text('time_entry_id').primaryKey().references(()=>timeEntries.id), invoice_id:text('invoice_id').notNull().references(()=>paymentInvoices.id) });
 
 export const payrollSchemaVersion = sqliteTable('payroll_schema_version', { version:integer('version').primaryKey() });
+
+// Independent of task_entries so deletion retries survive removal of the task.
+export const deletedTaskSync = sqliteTable('deleted_task_sync', { task_id: text('task_id').primaryKey(), spreadsheet_id: text('spreadsheet_id').notNull(), sheet_tab: text('sheet_tab').notNull(), updated_at: integer('updated_at').notNull(), last_error: text('last_error') });

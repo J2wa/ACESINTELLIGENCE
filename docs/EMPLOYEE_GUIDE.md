@@ -2,9 +2,17 @@
 
 **Sign in.** Ask your coordinator to create your account. Use your email and password, or Continue with Google if enabled. You can change your password in Settings. After 30 minutes without requests, sign in again.
 
-**Log a task.** Click Log a task. Pick an assigned project and work account, enter the exact video/task ID, and enter video length as h:mm:ss (for example `0:04:32`). Zeroes at the beginning of the ID are kept. Choose PENDING or SKIPPED (NO CHANGES). Add a note when useful. Your name is automatic.
+**Log a task.** Pick an assigned project and work account, enter the date and exact task ID, and choose PENDING or SKIPPED (NO CHANGES). Your name is automatic, and leading zeroes in task IDs are preserved. The form follows the project's pay basis:
 
-**Record work separately.** Video length is not how long you worked. You can add minutes and a start time when creating a task, start a timer linked to a project/task, or enter time manually in Timesheets. Do not record the same work using both methods. Overlapping intervals are rejected. More than 12 hours in a Manila day shows a warning.
+- **Per task:** date, annotator, project, work account, task ID, status, and optional notes.
+- **Per video hour:** the existing video-duration form with optional working minutes and notes.
+- **Per working hour:** date, annotator, project, work account, task ID, status, and working minutes.
+
+Mass upload uses the same project-specific columns. Paste in the displayed column order. Existing tasks retain the pay basis captured when created.
+
+**Record work separately.** Video length is not working time. Working minutes are allocated within the selected Manila date without an exact start time. You may also start a linked timer or enter time manually in Timesheets. Do not record the same work twice. Overlapping intervals are rejected; more than 12 hours in a day shows a warning.
+
+**Delete a log.** Use the trash button in Task log or Timesheets and confirm. Employees can delete only their own logs. Deleting a task also deletes its linked working-time logs; deleting a time log keeps its task and recalculates hours. Stop running timers first. Paid work cannot be deleted, and submitted/approved weeks must be returned before deletion. Deletions are audited; tracker cleanup is queued for retry if Google Sheets is unavailable.
 
 **Wait for Saved.** Start the next task only after the Saved confirmation. A duplicate ID within the same project/account displays a warning; choose Open existing entry if it is yours. If another employee owns it, contact your coordinator.
 

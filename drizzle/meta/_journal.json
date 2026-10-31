@@ -22,6 +22,13 @@
       "when": 1793465000000,
       "tag": "0002_payments",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1793490000000,
+      "tag": "0003_log_deletion",
+      "breakpoints": true
     }
   ]
 }

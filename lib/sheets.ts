@@ -1,5 +1,6 @@
 import { all, one, stmt, config, token } from './auth';
 import { duration, taskHours, payrollRows } from './core.mjs';
+import { ensureLogSchema } from './log-schema';
 import { TRACKER_HEADERS } from './tracker.mjs';
 const b64 = (data: Uint8Array) => btoa(String.fromCharCode(...data)).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '');
 async function accessToken() {
@@ -15,8 +16,9 @@ async function accessToken() {
     return (await r.json() as any).access_token;
 }
 export async function syncTasks(limit = 1, taskId?: string) {
+    await ensureLogSchema();
     const setting = await one("SELECT value FROM settings WHERE key='spreadsheet_id'");
-    if (!setting?.value && !await one("SELECT id FROM projects WHERE spreadsheet_id!='' LIMIT 1"))
+    if (!setting?.value && !await one("SELECT id FROM projects WHERE spreadsheet_id!='' LIMIT 1") && !await one("SELECT task_id FROM deleted_task_sync LIMIT 1"))
         return { synced: 0, pending: true, message: 'Configure a project or workspace spreadsheet.' };
     const lock = token(), now = Date.now();
     await stmt("INSERT INTO settings(key,value) VALUES('sync_lock',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value WHERE CAST(substr(settings.value,1,13) AS INTEGER)<?", `${now + 120000}:${lock}`, now).run();
@@ -29,6 +31,27 @@ export async function syncTasks(limit = 1, taskId?: string) {
             const message = 'Google Sheets authorization is unavailable. Check the service-account secret and Sheets API configuration.';
             await stmt("UPDATE sync_jobs SET status='error',last_error=? WHERE status!='synced' AND (? IS NULL OR task_id=?)", message, taskId ?? null, taskId ?? null).run();
             return { synced: 0, pending: true, message };
+        }
+        const deletions = await all('SELECT * FROM deleted_task_sync ORDER BY updated_at LIMIT ?', limit);
+        for (const job of deletions) {
+            try {
+                const range = "'" + job.sheet_tab.replaceAll("'", "''") + "'";
+                const base = `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(job.spreadsheet_id)}/values/`;
+                const headers = { Authorization: `Bearer ${bearer}`, 'Content-Type': 'application/json' };
+                const response = await fetch(base + encodeURIComponent(range + '!A:P'), { headers, signal: AbortSignal.timeout(10000) });
+                if (!response.ok) throw new Error('Cannot read tracker to remove deleted task.');
+                const values = (await response.json() as { values?: unknown[][] }).values ?? [];
+                // Clear by stable entry ID, never by a stored row number or user-entered task ID.
+                for (let index = 1; index < values.length; index++) {
+                    if (values[index][9] !== job.task_id) continue;
+                    const cleared = await fetch(base + encodeURIComponent(range + `!A${index + 1}:P${index + 1}`) + ':clear', { method: 'POST', headers, body: '{}', signal: AbortSignal.timeout(10000) });
+                    if (!cleared.ok) throw new Error('Could not remove deleted task from tracker.');
+                }
+                await stmt('DELETE FROM deleted_task_sync WHERE task_id=?', job.task_id).run();
+                synced++;
+            } catch (error) {
+                await stmt('UPDATE deleted_task_sync SET last_error=? WHERE task_id=?', (error as Error).message, job.task_id).run();
+            }
         }
         const jobs = await all("SELECT j.*,t.date,t.video_id,t.duration_seconds,t.status AS task_status,t.notes,u.name AS annotator,p.name AS project,p.spreadsheet_id,a.name AS account,a.sheet_tab,t.user_id,t.project_id,t.account_id,t.pay_basis,t.rate_cents,t.updated_at AS task_updated_at,(SELECT COALESCE(SUM((end_ms-start_ms)/1000),0) FROM time_entries WHERE task_id=t.id AND end_ms IS NOT NULL) AS spent FROM sync_jobs j JOIN task_entries t ON t.id=j.task_id JOIN users u ON u.id=t.user_id JOIN projects p ON p.id=t.project_id JOIN accounts a ON a.id=t.account_id WHERE j.status!='synced' AND (? IS NULL OR j.task_id=?) ORDER BY j.updated_at LIMIT ?", taskId ?? null, taskId ?? null, limit);
         for (const j of jobs) {
@@ -69,7 +92,7 @@ export async function syncTasks(limit = 1, taskId?: string) {
                 await stmt("UPDATE sync_jobs SET status='error',last_error=?,attempts=attempts+1 WHERE task_id=? AND updated_at=?", (e as Error).message, j.task_id, j.updated_at).run();
             }
         }
-        const pending = !!await one("SELECT task_id FROM sync_jobs WHERE status!='synced' LIMIT 1");
+        const pending = !!await one("SELECT task_id FROM sync_jobs WHERE status!='synced' UNION ALL SELECT task_id FROM deleted_task_sync LIMIT 1");
         return { synced, pending, message: `Synced ${synced} ${synced === 1 ? 'row' : 'rows'}.${pending ? ' More entries are queued or need attention in Settings.' : ' All caught up.'}` };
     }
     finally {

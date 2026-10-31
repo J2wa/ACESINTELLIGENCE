@@ -24,3 +24,11 @@ test('employees cannot approve tasks through pasted statuses',()=>{
  assert(validateBulkRows([approved],false)[0].status);
  assert.deepEqual(validateBulkRows([approved],true),{});
 });
+
+test('project-specific validation ignores hidden fields and requires working minutes', () => {
+ const row = {...blankBulkRow(1), video_id:'00001', duration:'bad', minutes:''};
+ assert.deepEqual(validateBulkRows([row], false, 'TASK'), {});
+ assert(validateBulkRows([row], false, 'VIDEO_HOUR')[0].duration);
+ assert(validateBulkRows([row], false, 'WORKING_HOUR')[0].minutes);
+ assert.deepEqual(validateBulkRows([{...row, minutes:'30'}], false, 'WORKING_HOUR'), {});
+});

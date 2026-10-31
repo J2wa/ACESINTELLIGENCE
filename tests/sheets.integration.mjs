@@ -22,7 +22,8 @@ globalThis.fetch=async(url,init={})=>{
  if(!init.method)return Response.json({values});
  const payload=JSON.parse(init.body);
  if(failWrites)return new Response('denied',{status:403});
- if(u.includes(':append')){values.push(payload.values[0]);appends++;}
+ if(u.includes(':clear')){values[1]=[];updates++;}
+ else if(u.includes(':append')){values.push(payload.values[0]);appends++;}
  else if(u.includes('A1%3AP1')) values[0]=payload.values[0];
  else {values[1]=payload.values[0];updates++;}
  return Response.json({});
@@ -47,5 +48,16 @@ try {
  await client.execute("UPDATE sync_jobs SET status='pending',updated_at=3 WHERE task_id='t'");
  assert.equal((await syncTasks()).synced,0);
  assert.equal((await client.execute("SELECT status FROM sync_jobs WHERE task_id='t'")).rows[0].status,'error');
+ await client.execute("INSERT INTO deleted_task_sync(task_id,spreadsheet_id,sheet_tab,updated_at) VALUES('t','test-sheet','Task log',4)");
+ await client.execute("DELETE FROM sync_jobs WHERE task_id='t'");
+ await client.execute("DELETE FROM task_entries WHERE id='t'");
+ assert.equal((await syncTasks()).synced,0);
+ assert.equal((await client.execute('SELECT COUNT(*) count FROM deleted_task_sync')).rows[0].count,1);
+ assert.equal(values[1][9],'t');
+ failWrites=false;
+ assert.equal((await syncTasks()).synced,1);
+ assert.deepEqual(values[1],[]);
+ assert.equal((await client.execute('SELECT COUNT(*) count FROM deleted_task_sync')).rows[0].count,0);
+ assert.equal((await syncTasks()).synced,0);
  console.log('PASS: Sheets headers, project routing, text IDs, append/update idempotency, pay values, and failed-write retry state.');
 } finally {globalThis.fetch=originalFetch;client.close();rmSync(dir,{recursive:true,force:true});}

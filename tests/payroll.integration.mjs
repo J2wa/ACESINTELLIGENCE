@@ -70,6 +70,9 @@ await req('timer',{action:'stop'},a);await req('timer',{action:'start',project_i
 await req('timesheets',{week_start:'2026-10-19',user_id:alice,action:'return',comment:'Paid work remains locked'},admin);
 const paidTime=workspace.times.find(time=>!time.task_id&&time.paid_invoice_id);
 await req('time',{id:paidTime.id,project_id:project,start_ms:paidTime.start_ms+60000,end_ms:paidTime.end_ms},a,409);
+await req('tasks/delete',{id:taskA,version:2},admin,409);
+await req('time/delete',{id:linked.id},a,409);
+await req('time/delete',{id:paidTime.id},admin,409);
 for(const sql of ["DELETE FROM task_entries WHERE id='"+taskA+"'","DELETE FROM time_entries WHERE id='"+linked.id+"'","UPDATE payment_invoices SET total_cents=1","DELETE FROM payment_tasks","DELETE FROM payment_times","DELETE FROM payment_invoice_items"]){await assert.rejects(db.prepare(sql).run(),/paid_work_locked|invoice_immutable/);checks++;}
 workspace=(await req('workspace',null,a)).j;const lifetime=earningsTotals(workspace,'2026-10');assert.equal(lifetime.paid_cents,24345);assert.equal(lifetime.monthly_cents,12000);assert.equal(earningsTotals(workspace,'2026-11').monthly_cents,12345);
 // Paid totals survive project/rate and employee-name changes; invoice details remain snapshots.
