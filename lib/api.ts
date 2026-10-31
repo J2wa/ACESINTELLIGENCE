@@ -10,6 +10,7 @@ const name = z.string().trim().min(1).max(150), password = z.string().min(12, 'U
 catch {
     return false;
 } }, 'Invalid date'), email = z.string().trim().email().max(254).transform(v => v.toLowerCase());
+const taskInput = z.object({ id: uid.optional(), version: z.number().int().optional(), date, project_id: uid, account_id: uid, video_id: z.string().min(1).max(250).refine(v => v.trim().length > 0, 'Video ID is required.'), duration: z.string(), status: z.enum(['PENDING', 'APPROVED', 'RETURNED', 'SKIPPED (NO CHANGES)']), notes: z.string().max(5000).default(''), start_ms: z.number().int().optional(), minutes: z.number().int().min(0).max(1440).default(0) });
 const admin = (u: any) => { if (u.role !== 'ADMIN')
     fail('Administrator access required.', 403); };
 const safeSync = async (limit = 3, taskId?: string) => { try { return await syncTasks(limit, taskId); } catch { return { synced: 0, pending: true, message: 'Saved in Workhub. Spreadsheet sync is queued for retry.' }; } };
@@ -141,7 +142,7 @@ export async function handle(req: Request) {
         if (path === 'workspace' && method === 'GET')
             return json(await snapshot(u));
         if (path === 'tasks' && method === 'POST') {
-            const b = z.object({ id: uid.optional(), version: z.number().int().optional(), date, project_id: uid, account_id: uid, video_id: z.string().min(1).max(250).refine(v => v.trim().length > 0, 'Video ID is required.'), duration: z.string(), status: z.enum(['PENDING', 'APPROVED', 'RETURNED', 'SKIPPED (NO CHANGES)']), notes: z.string().max(5000).default(''), start_ms: z.number().int().optional(), minutes: z.number().int().min(0).max(1440).default(0) }).parse(await req.json());
+            const b = taskInput.parse(await req.json());
             const seconds = parseDuration(b.duration), old = b.id ? await one('SELECT * FROM task_entries WHERE id=?', b.id) : null;
             if (b.id && !old)
                 fail('Task not found.', 404);
@@ -190,6 +191,55 @@ export async function handle(req: Request) {
             }
             catch { /* durable outbox retries from Settings */ }
             return json({ saved: true, id: taskId, sync, warning: b.minutes ? await dailyWarning(u.id, midnight(b.date), midnight(addDays(b.date, 1))) : null });
+        }
+        if (path === 'tasks/bulk' && method === 'POST') {
+            const parsed = z.object({ tasks: z.array(taskInput.omit({ id: true, version: true, start_ms: true }).strict()).min(1, 'Enter at least one task.').max(100, 'Upload up to 100 tasks at a time.') }).strict().safeParse(await req.json());
+            if (!parsed.success) return json({ error: parsed.error.issues.map(issue => `${typeof issue.path[1] === 'number' ? `Row ${issue.path[1] + 1}: ` : ''}${issue.path.slice(2).join('.')}${issue.path.length > 2 ? ': ' : ''}${issue.message}`).join(' ') }, 400);
+            const rows = parsed.data.tasks;
+            const seen = new Set<string>();
+            for (let index = 0; index < rows.length; index++) {
+                const row = rows[index], key = JSON.stringify([row.project_id, row.account_id, row.video_id]);
+                if (seen.has(key)) fail(`Row ${index + 1}: This task ID appears more than once in the upload.`, 409);
+                seen.add(key);
+            }
+            const statements: any[] = [], projectCache = new Map<string, any>(), unlocked = new Set<string>(), dayTimes = new Map<string, any[]>();
+            for (let index = 0; index < rows.length; index++) {
+                const row = rows[index];
+                try {
+                    if (u.role !== 'ADMIN' && !['PENDING', 'SKIPPED (NO CHANGES)'].includes(row.status)) fail('Only coordinators can approve or return tasks.', 403);
+                    let seconds: number;
+                    try { seconds = parseDuration(row.duration); } catch (error) { fail((error as Error).message); }
+                    const projectKey = JSON.stringify([row.project_id, row.account_id]);
+                    if (!projectCache.has(projectKey)) projectCache.set(projectKey, await assignment(u, row.project_id, row.account_id));
+                    const project = projectCache.get(projectKey), dateStart = midnight(row.date), taskId = id();
+                    if (!unlocked.has(row.date)) { await editableWeek(u.id, dateStart); unlocked.add(row.date); }
+                    statements.push(stmt('INSERT INTO task_entries(id,date,project_id,account_id,user_id,video_id,duration_seconds,status,notes,created_at,updated_at,pay_basis,rate_cents) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)', taskId, row.date, row.project_id, row.account_id, u.id, row.video_id, seconds!, row.status, row.notes, now, now, project.pay_basis, project.rate_cents));
+                    if (row.minutes > 0) {
+                        if (!dayTimes.has(row.date)) dayTimes.set(row.date, await all('SELECT start_ms,end_ms FROM time_entries WHERE user_id=? AND start_ms<? AND COALESCE(end_ms,?)>?', u.id, dateStart + 86400000, now, dateStart));
+                        const entries = dayTimes.get(row.date)!;
+                        let slots;
+                        try { slots = allocateTaskTime(row.date, row.minutes, entries, now); } catch (error) { fail((error as Error).message); }
+                        for (const slot of slots!) {
+                            entries.push(slot);
+                            statements.push(stmt("INSERT INTO time_entries(id,project_id,user_id,task_id,start_ms,end_ms,rate_cents,source,notes,created_at,pay_basis) VALUES(?,?,?,?,?,?,?,'task',?,?,?)", id(), row.project_id, u.id, taskId, slot.start_ms, slot.end_ms, project.rate_cents, 'Task minutes: automatically allocated; not exact clock times.', now, project.pay_basis));
+                        }
+                    }
+                    statements.push(audit(u, 'task_entries', taskId, 'created', null, { ...row, id: taskId, user_id: u.id, duration_seconds: seconds! }), queue(taskId));
+                } catch (error: any) {
+                    if (error.status) fail(`Row ${index + 1}: ${error.message}`, error.status);
+                    throw error;
+                }
+            }
+            const duplicates = await all('SELECT project_id,account_id,video_id FROM task_entries WHERE ' + rows.map(() => '(project_id=? AND account_id=? AND video_id=?)').join(' OR '), ...rows.flatMap(row => [row.project_id, row.account_id, row.video_id]));
+            if (duplicates.length) {
+                const index = rows.findIndex(row => duplicates.some(existing => existing.project_id === row.project_id && existing.account_id === row.account_id && existing.video_id === row.video_id));
+                fail(`Row ${index + 1}: This task ID already exists in the selected project and account.`, 409);
+            }
+            // One transaction prevents partial uploads, including when a concurrent edit creates a conflict.
+            await DB().batch(statements);
+            await safeSync(3);
+            const longDay = [...dayTimes].some(([date, entries]) => entries.reduce((sum, entry) => sum + Math.max(0, Math.min(entry.end_ms ?? now, midnight(date) + 86400000) - Math.max(entry.start_ms, midnight(date))), 0) > 43200000);
+            return json({ saved: true, count: rows.length, message: `${rows.length} task${rows.length === 1 ? '' : 's'} uploaded.`, warning: longDay ? 'More than 12 hours are logged in a Manila day. Please review your entries.' : null });
         }
         if (path === 'task-status' && method === 'POST') {
             admin(u);

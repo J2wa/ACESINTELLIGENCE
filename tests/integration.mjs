@@ -3,7 +3,11 @@ import {readFileSync,readdirSync,mkdtempSync,rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';import {join} from 'node:path';
 import {randomBytes} from 'node:crypto';import assert from 'node:assert/strict';
 import {day,midnight,weekStart,addDays} from '../lib/core.mjs';
-const testDir=mkdtempSync(join(tmpdir(),'workhub-test-'));
+// Keep time-sensitive scenarios valid even when tests run just after Manila midnight.
+const originalNow=Date.now, testNow=midnight(day())+12*3600000;
+let clockTicks=0;
+Date.now=()=>testNow+clockTicks++;
+const testDir=mkdtempSync(join(tmpdir(),'workhub-test'));
 const secret=randomBytes(32).toString('hex'),pass=randomBytes(24).toString('hex'),employeePass=randomBytes(24).toString('hex');
 process.env.TURSO_DATABASE_URL='file:'+join(testDir,'test.db');
 process.env.BOOTSTRAP_TOKEN=secret;
@@ -63,6 +67,34 @@ assert.equal(payTask.pay_basis,'TASK');assert.equal(payTask.rate_cents,5000);
 const payroll=(await req('export?kind=payroll',null,admin)).j;
 assert(payroll.includes('Per video hour') && payroll.includes('Per task'));
 await req('tasks',{...body,date:addDays(date,-1),id:minutesTask,version:1,video_id:'MINUTES-ONLY',minutes:1},employee,400);
+// Bulk task entry validates every row before committing tasks and working time.
+const bulkDate=addDays(date,-21), bulkBase={...body,date:bulkDate,minutes:30};
+const bulkBefore=(await req('workspace',null,employee)).j.tasks.length;
+const badBulk=await req('tasks/bulk',{tasks:[{...bulkBase,video_id:'BULK-INVALID-A'},{...bulkBase,video_id:'BULK-INVALID-B',duration:'wrong'}]},employee,400);
+assert.match(badBulk.j.error,/Row 2/);
+assert.equal((await req('workspace',null,employee)).j.tasks.length,bulkBefore);
+await req('tasks/bulk',{tasks:[]},employee,400);
+await req('tasks/bulk',{tasks:Array.from({length:101},(_,i)=>({...bulkBase,video_id:'LIMIT-'+i}))},employee,400);
+await req('tasks/bulk',{tasks:[{...bulkBase,video_id:'BULK-ROLE',status:'APPROVED'}]},employee,403);
+await req('tasks/bulk',{tasks:[{...bulkBase,video_id:'BULK-OWNER',user_id:'other'}]},employee,400);
+await req('tasks/bulk',{tasks:[{...bulkBase,project_id:otherProject,video_id:'BULK-UNASSIGNED'}]},employee,403);
+await req('tasks/bulk',{tasks:[{...bulkBase,video_id:'BULK-DUP'},{...bulkBase,video_id:'BULK-DUP'}]},employee,409);
+await req('tasks/bulk',{tasks:[{...bulkBase,video_id:body.video_id}]},employee,409);
+await req('tasks/bulk',{tasks:[{...bulkBase,video_id:'BULK-TOO-MUCH-A',minutes:800},{...bulkBase,video_id:'BULK-TOO-MUCH-B',minutes:800}]},employee,400);
+assert.equal((await req('workspace',null,employee)).j.tasks.length,bulkBefore);
+const uploaded=await req('tasks/bulk',{tasks:[{...bulkBase,video_id:'000BULK-A'},{...bulkBase,video_id:'000BULK-B',duration:'0:08:00',minutes:45}]},employee);
+assert.equal(uploaded.j.count,2);
+const bulkWorkspace=(await req('workspace',null,employee)).j;
+const bulkTasks=bulkWorkspace.tasks.filter(t=>t.video_id.startsWith('000BULK-'));
+assert.equal(bulkTasks.length,2);assert(bulkTasks.every(t=>t.user_id===employeeId&&t.status==='PENDING'&&t.pay_basis==='VIDEO_HOUR'&&t.rate_cents===20000));
+const bulkTimes=bulkWorkspace.times.filter(t=>bulkTasks.some(task=>task.id===t.task_id)).sort((a,b)=>a.start_ms-b.start_ms);
+assert.equal(bulkTimes.reduce((sum,t)=>sum+t.end_ms-t.start_ms,0),75*60000);assert.equal(bulkTimes[0].end_ms,bulkTimes[1].start_ms);
+for(const task of bulkTasks){assert(await db.prepare("SELECT id FROM audit_log WHERE entity_id=? AND action='created'").bind(task.id).first());assert(await db.prepare('SELECT task_id FROM sync_jobs WHERE task_id=?').bind(task.id).first());checks++;}
+await req('tasks/bulk',{tasks:[{...bulkBase,video_id:'000BULK-A'}]},employee,409);
+const maxUpload=await req('tasks/bulk',{tasks:Array.from({length:100},(_,i)=>({...bulkBase,video_id:`BULK-LIMIT-${String(i).padStart(3,'0')}`,minutes:0}))},employee);
+assert.equal(maxUpload.j.count,100);checks++;
+const unauthBulk=await req('tasks/bulk',{tasks:[bulkBase]},'',401);
+const badOriginBulk=await dispatch(base+'/api/tasks/bulk',{method:'POST',headers:{Origin:'https://other.example','Content-Type':'application/json',Cookie:employee},body:JSON.stringify({tasks:[bulkBase]})});assert.equal(badOriginBulk.status,403);checks++;
 // Single and batch task-status approval preserve data and reject stale or unauthorized requests.
 const approvalDate=addDays(date,-14);
 const approvalA=(await req('tasks',{...body,date:approvalDate,video_id:'APPROVAL-A'},employee)).j.id;
@@ -80,7 +112,7 @@ const approvalC=(await req('tasks',{...body,date:approvalDate,video_id:'APPROVAL
 await req('task-status',{tasks:[{id:approvalC,version:1}]},admin);
 assert.equal((await req('workspace',null,employee)).j.tasks.find(t=>t.id===approvalC).status,'APPROVED');
 await req('timer',{action:'start',project_id:p},employee);await req('timer',{action:'start',project_id:p},employee,409);await req('timesheets',{week_start:weekStart(date),action:'submit'},employee,400);await req('timer',{action:'stop'},employee);
-await req('timesheets',{week_start:weekStart(date),action:'submit'},employee);await req('task-status',{tasks:[{id:task,version:2}]},admin,409);await req('time',{project_id:p,start_ms:start-3600000,end_ms:start},employee,409);await req('timesheets',{week_start:weekStart(date),user_id:employeeId,action:'approve'},admin);await req('timesheets',{week_start:weekStart(date),user_id:employeeId,action:'return',comment:'Check hours'},admin);await req('time',{project_id:p,start_ms:start-3600000,end_ms:start},employee);
+await req('timesheets',{week_start:weekStart(date),action:'submit'},employee);await req('tasks/bulk',{tasks:[{...body,video_id:'BULK-LOCKED'}]},employee,409);await req('task-status',{tasks:[{id:task,version:2}]},admin,409);await req('time',{project_id:p,start_ms:start-3600000,end_ms:start},employee,409);await req('timesheets',{week_start:weekStart(date),user_id:employeeId,action:'approve'},admin);await req('timesheets',{week_start:weekStart(date),user_id:employeeId,action:'return',comment:'Check hours'},admin);await req('time',{project_id:p,start_ms:start-3600000,end_ms:start},employee);
 const exp=await dispatch(base+'/api/export?format=xlsx',{headers:{Cookie:employee}});assert.equal(exp.status,200);assert.equal((new Uint8Array(await exp.arrayBuffer()))[0],80);checks++;const history=(await req('audit?task='+task,null,employee)).j;assert(history.length>=2);
 const csrf=await dispatch(base+'/api/timer',{method:'POST',headers:{Origin:'https://invalid.example','Content-Type':'application/json',Cookie:employee},body:JSON.stringify({action:'start',project_id:p})});assert.equal(csrf.status,403);checks++;
 await req('auth/password',{current_password:employeePass,password:randomBytes(24).toString('hex')},employee);await req('workspace',null,employee,401);
@@ -99,4 +131,4 @@ await req('auth/me');
 assert.equal((await db.prepare('SELECT role FROM users WHERE email=?').bind(process.env.ADMIN_EMAIL).first()).role,'EMPLOYEE');
 checks++;
 console.log(`PASS: ${checks} Node/libSQL API checks including RBAC, bootstrap, assignment, hashing/login, duplicate conflict, stale edits, timer/overlap, timesheet workflow, XLSX, audit, CSRF and session revocation.`);
-}finally{getClient().close();rmSync(testDir,{recursive:true,force:true});}
+}finally{Date.now=originalNow;getClient().close();rmSync(testDir,{recursive:true,force:true});}
