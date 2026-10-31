@@ -18,7 +18,7 @@ const passA=randomBytes(24).toString('hex'),passB=randomBytes(24).toString('hex'
 await req('users',{name:'Alice',email:'alice@example.com',role:'EMPLOYEE',active:1,password:passA},admin);await req('users',{name:'Bob',email:'bob@example.com',role:'EMPLOYEE',active:1,password:passB},admin);
 let workspace=(await req('workspace',null,admin)).j;const alice=workspace.users.find(u=>u.email==='alice@example.com').id,bob=workspace.users.find(u=>u.email==='bob@example.com').id;
 const a=cookie((await req('auth/login',{email:'alice@example.com',password:passA})).r),b=cookie((await req('auth/login',{email:'bob@example.com',password:passB})).r);
-const project=(await req('projects',{name:'Hourly project',description:'',status:'active',hourly_target:40,rate_cents:6000,pay_basis:'WORKING_HOUR',color:'#2563eb',employee_ids:[alice,bob]},admin)).j.id;
+const project=(await req('projects',{name:'Hourly project',time_tracking_enabled:1,description:'',status:'active',hourly_target:40,rate_cents:6000,pay_basis:'WORKING_HOUR',color:'#2563eb',employee_ids:[alice,bob]},admin)).j.id;
 await req('accounts',{project_id:project,name:'Hourly account',active:1,sheet_tab:'',employee_ids:[alice,bob]},admin);workspace=(await req('workspace',null,admin)).j;const account=workspace.accounts.find(x=>x.project_id===project).id;
 const taskBody={date:'2026-10-31',project_id:project,account_id:account,duration:'0:03:00',status:'PENDING',minutes:60,notes:'Original work'};
 const taskA=(await req('tasks',{...taskBody,video_id:'000-ALICE'},a)).j.id,taskB=(await req('tasks',{...taskBody,date:'2026-11-01',minutes:30,video_id:'000-BOB'},b)).j.id;

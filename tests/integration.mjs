@@ -25,11 +25,31 @@ for(let refresh=0;refresh<3;refresh++) {
  const restored=await restoreWorkspace((path)=>dispatch(base+path,{headers:{Cookie:admin}}));
  assert.equal(restored.auth.user.id,setup.j.user.id);assert.equal(restored.data.user.id,setup.j.user.id);checks++;
 }
-await req('users',{name:'QA Employee',email:'employee@example.com',role:'EMPLOYEE',active:1,password:employeePass},admin);let snapshot=(await req('workspace',null,admin)).j;const employeeId=snapshot.users.find(u=>u.email==='employee@example.com').id;const p=(await req('projects',{name:'QA Project',description:'',status:'active',hourly_target:40,rate_cents:15000,color:'#647c45',employee_ids:[employeeId]},admin)).j.id;
+await req('users',{name:'QA Employee',email:'employee@example.com',role:'EMPLOYEE',active:1,password:employeePass},admin);let snapshot=(await req('workspace',null,admin)).j;const employeeId=snapshot.users.find(u=>u.email==='employee@example.com').id;const p=(await req('projects',{name:'QA Project',time_tracking_enabled:1,description:'',status:'active',hourly_target:40,rate_cents:15000,color:'#647c45',employee_ids:[employeeId]},admin)).j.id;
 await req('accounts',{project_id:p,name:'cococrunch',active:1,sheet_tab:'',employee_ids:[employeeId]},admin);snapshot=(await req('workspace',null,admin)).j;const account=snapshot.accounts[0].id;const er=await req('auth/login',{email:'employee@example.com',password:employeePass}),employee=er.r.headers.get('set-cookie').split(';')[0];
 const own=(await req('workspace',null,employee)).j;assert.equal(own.users.length,1);assert.equal(own.users[0].id,employeeId);await req('projects',{name:'forbidden'},employee,403);
 const otherProject=(await req('projects',{name:'Unassigned project',description:'',status:'active',hourly_target:null,rate_cents:10000,color:'#647c45',employee_ids:[]},admin)).j.id;
 await req('timer',{action:'start',project_id:otherProject},employee,403);
+// Timer use requires an explicit administrator opt-in for each project.
+const timerSettings={name:'Timer controls',description:'',status:'active',hourly_target:40,rate_cents:15000,color:'#647c45',employee_ids:[employeeId]};
+const timerProject=(await req('projects',timerSettings,admin)).j.id;
+assert.equal((await req('workspace',null,employee)).j.projects.find(p=>p.id===timerProject).time_tracking_enabled,0);
+await req('timer',{action:'start',project_id:timerProject},employee,403);
+await req('timer',{action:'start',project_id:timerProject},admin,403);
+await req('projects',{...timerSettings,id:timerProject,time_tracking_enabled:1},employee,403);
+await req('projects',{...timerSettings,id:timerProject,time_tracking_enabled:2},admin,400);
+await req('projects',{...timerSettings,id:timerProject,time_tracking_enabled:1},admin);
+// Older project clients that omit the flag must preserve the saved setting.
+await req('projects',{...timerSettings,id:timerProject},admin);
+assert.equal((await req('workspace',null,employee)).j.projects.find(p=>p.id===timerProject).time_tracking_enabled,1);
+await req('timer',{action:'start',project_id:timerProject},employee);
+await req('projects',{...timerSettings,id:timerProject,time_tracking_enabled:0},admin);
+await req('timer',{action:'stop'},employee);
+await req('timer',{action:'start',project_id:timerProject},employee,403);
+const timerAudit=(await db.prepare("SELECT after_json FROM audit_log WHERE entity='projects' AND entity_id=? AND action='updated' ORDER BY created_at DESC LIMIT 1").bind(timerProject).first());
+assert.equal(JSON.parse(timerAudit.after_json).time_tracking_enabled,0);
+// Manual time remains separate from the work-timer permission.
+await req('time',{project_id:timerProject,start_ms:midnight(addDays(day(),-50))+3600000,end_ms:midnight(addDays(day(),-50))+7200000},employee);
 await db.prepare("INSERT INTO users(id,name,email,role,created_at) VALUES('other','Other employee','other@example.com','EMPLOYEE',0)").run();
 await db.prepare("INSERT INTO task_entries(id,date,project_id,account_id,user_id,video_id,duration_seconds,created_at,updated_at) VALUES('private-task',?,?,?,?,?,60,0,0)").bind(day(),p,account,'other','PRIVATE-ID').run();
 assert(!(await req('workspace',null,employee)).j.tasks.some(t=>t.id==='private-task'));

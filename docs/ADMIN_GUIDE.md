@@ -27,3 +27,9 @@ Lifetime and monthly earnings include paid amounts plus unpaid approved earnings
 Admins can delete any employee's unpaid task or time log using the trash button. Employees can delete only their own logs. Task deletion also removes linked working time, hour reviews, and queued tracker writes in one transaction, with audit history preserved. Google Sheets row removal uses the stable entry ID and retries from Settings → Sync pending. Paid logs remain locked; submitted/approved weeks must be returned first, and running timers must be stopped.
 
 Task forms and bulk columns follow **Per task**, **Per video hour**, or **Per working hour**. Project cards display this pay basis instead of guessing an annotation type from the project name. Existing task editors use the task's captured pay basis even if the project basis has since changed.
+
+## Enable the work timer for a project
+
+Open **Projects → Manage → Time tracking**, check **Enable time tracking**, then save. Only administrators can change this setting. Existing and new projects start disabled until explicitly enabled. The timer project selector includes only active projects with time tracking enabled, and employees still need a project assignment.
+
+Disabling time tracking blocks new timer sessions, including direct API requests. A running session can still be stopped and saved. The setting applies to the work timer; task logging and manual working-time entry keep their existing permissions. Changes appear in workspace audit history.

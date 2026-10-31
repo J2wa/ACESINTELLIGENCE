@@ -27,3 +27,7 @@ Mass upload uses the same project-specific columns. Paste in the displayed colum
 Open **Payroll** to see your lifetime earnings, monthly earnings, paid total, unpaid approved balance, and payment history. Monthly earnings use the date the work was performed. Pending, unapproved work does not count as approved earnings.
 
 Once your coordinator records payment, included tasks and time entries show as paid and cannot be edited or given additional working time. Open **View invoice** to see the amount paid and each included task or project-time entry. Use **Export invoice PDF** for a printable invoice, or download the invoice as CSV. Each employee can access only their own invoices.
+
+## Work timer availability
+
+Your work timer is available only for assigned, active projects whose administrator enabled **Time tracking** in project settings. If none are enabled, **Start timer** is disabled with an explanation. A timer already running can still be stopped if the administrator disables that project.

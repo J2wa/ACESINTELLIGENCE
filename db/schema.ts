@@ -26,3 +26,5 @@ export const payrollSchemaVersion = sqliteTable('payroll_schema_version', { vers
 
 // Independent of task_entries so deletion retries survive removal of the task.
 export const deletedTaskSync = sqliteTable('deleted_task_sync', { task_id: text('task_id').primaryKey(), spreadsheet_id: text('spreadsheet_id').notNull(), sheet_tab: text('sheet_tab').notNull(), updated_at: integer('updated_at').notNull(), last_error: text('last_error') });
+
+export const projectTimeTracking = sqliteTable('project_time_tracking', { project_id: text('project_id').primaryKey().references(() => projects.id), enabled: integer('enabled').notNull().default(0) });

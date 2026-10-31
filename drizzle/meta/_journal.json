@@ -29,6 +29,13 @@
       "when": 1793490000000,
       "tag": "0003_log_deletion",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1793493000000,
+      "tag": "0004_project_time_tracking",
+      "breakpoints": true
     }
   ]
 }

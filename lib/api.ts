@@ -3,6 +3,7 @@ import { getClient } from './database';
 import { z } from 'zod';
 import { DB, stmt, one, all, id, sha, token, hashPassword, checkPassword, cookie, setCookie, session, loginResponse, fail, originCheck, audit, config, constantEqual } from './auth';
 import { parseDuration, taskHours, hoursSignature, payrollRows, PAY_BASES, allocateTaskTime, duration, day, midnight, weekStart, addDays, splitDays, STATUSES, csv, xlsx } from './core.mjs';
+import { ensureTimerSchema } from './timer-schema.mjs';
 import { ensureLogSchema } from './log-schema';
 import { syncTasks } from './sheets';
 import { ensurePayrollSchema, paymentPreview, recordPayment, invoiceDetail } from './payroll';
@@ -19,7 +20,7 @@ const admin = (u: any) => { if (u.role !== 'ADMIN')
     fail('Administrator access required.', 403); };
 const safeSync = async (limit = 3, taskId?: string) => { try { return await syncTasks(limit, taskId); } catch { return { synced: 0, pending: true, message: 'Saved in Workhub. Spreadsheet sync is queued for retry.' }; } };
 const queue = (task: string) => stmt("INSERT INTO sync_jobs(task_id,status,updated_at) VALUES(?,'pending',?) ON CONFLICT(task_id) DO UPDATE SET status='pending',updated_at=excluded.updated_at", task, Date.now());
-async function assignment(u: any, project: string, account?: string) { const p = await one("SELECT * FROM projects WHERE id=? AND status='active'", project); if (!p)
+async function assignment(u: any, project: string, account?: string) { const p = await one("SELECT p.*,COALESCE(s.enabled,0) AS time_tracking_enabled FROM projects p LEFT JOIN project_time_tracking s ON s.project_id=p.id WHERE p.id=? AND p.status='active'", project); if (!p)
     fail('Choose an active project.'); if (u.role !== 'ADMIN' && !await one('SELECT 1 FROM project_assignments WHERE project_id=? AND user_id=?', project, u.id))
     fail('You are not assigned to this project.', 403); if (account) {
     if (!await one('SELECT 1 FROM accounts WHERE id=? AND project_id=? AND active=1', account, project))
@@ -50,7 +51,7 @@ async function snapshot(u: any) {
     const where = u.role === 'ADMIN' ? '' : ' WHERE t.user_id=?', args = u.role === 'ADMIN' ? [] : [u.id];
     const result = {
         user: u, users: await all('SELECT id,name,email,role,active FROM users' + (u.role === 'ADMIN' ? '' : ' WHERE id=?'), ...args),
-        projects: await all('SELECT * FROM projects' + (u.role === 'ADMIN' ? '' : ' WHERE id IN (SELECT project_id FROM project_assignments WHERE user_id=?)'), ...args),
+        projects: await all('SELECT p.*,COALESCE(s.enabled,0) AS time_tracking_enabled FROM projects p LEFT JOIN project_time_tracking s ON s.project_id=p.id' + (u.role === 'ADMIN' ? '' : ' WHERE p.id IN (SELECT project_id FROM project_assignments WHERE user_id=?)'), ...args),
         accounts: await all('SELECT * FROM accounts' + (u.role === 'ADMIN' ? '' : ' WHERE id IN (SELECT account_id FROM account_assignments WHERE user_id=?)'), ...args),
         assignments: await all('SELECT * FROM project_assignments' + (u.role === 'ADMIN' ? '' : ' WHERE user_id=?'), ...args), account_assignments: await all('SELECT * FROM account_assignments' + (u.role === 'ADMIN' ? '' : ' WHERE user_id=?'), ...args),
         tasks: await all('SELECT t.*,(SELECT invoice_id FROM payment_tasks WHERE task_id=t.id) AS paid_invoice_id,(SELECT COALESCE(SUM((end_ms-start_ms)/1000),0) FROM time_entries WHERE task_id=t.id AND end_ms IS NOT NULL) AS spent_seconds FROM task_entries t' + where + ' ORDER BY date DESC,created_at DESC', ...args),
@@ -75,7 +76,7 @@ export async function handle(req: Request) {
         }
         if (path === 'auth/me') {
             const u = await session(req);
-            if (u) { await ensurePayrollSchema(); await ensureLogSchema(); }
+            if (u) { await ensurePayrollSchema(); await ensureLogSchema(); await ensureTimerSchema(getClient()); }
             return json({ user: u, setup: !await one('SELECT id FROM users LIMIT 1'), owner_setup: false, google_configured: !!config('GOOGLE_CLIENT_ID'), google_only: config('GOOGLE_ONLY') === 'true' });
         }
         if (path === 'auth/setup' && method === 'POST') {
@@ -146,7 +147,7 @@ export async function handle(req: Request) {
         if (!u)
             fail('Your session has expired. Please sign in.', 401);
         await ensurePayrollSchema();
-        await ensureLogSchema();
+        await ensureLogSchema(); await ensureTimerSchema(getClient());
         if (path === 'auth/logout' && method === 'POST') {
             await stmt('DELETE FROM sessions WHERE token_hash=?', await sha(cookie(req, 'aces_session'))).run();
             return new Response('{}', { headers: { 'Set-Cookie': setCookie(req, 'aces_session', '', 0) } });
@@ -415,6 +416,7 @@ export async function handle(req: Request) {
                 if (active)
                     fail('You already have a running timer.', 409);
                 const p = await assignment(u, b.project_id!);
+                if (p.time_tracking_enabled !== 1) fail('Time tracking is disabled for this project. Ask an administrator to enable it in project settings.', 403);
                 await editableWeek(u.id, now);
                 if (b.task_id && !await one('SELECT 1 FROM task_entries WHERE id=? AND user_id=? AND project_id=?', b.task_id, u.id, p.id))
                     fail('Choose your own task in this project.');
@@ -463,11 +465,12 @@ export async function handle(req: Request) {
         }
         if (path === 'projects' && method === 'POST') {
             admin(u);
-            const b = z.object({ id: uid.optional(), name, description: z.string().max(3000).default(''), status: z.enum(['active', 'archived']), pay_basis: z.enum(['TASK','VIDEO_HOUR','WORKING_HOUR']).default('WORKING_HOUR'), spreadsheet_id: z.string().regex(/^[a-zA-Z0-9_-]*$/).max(200).default(''), hourly_target: z.number().int().min(0).max(10000).nullable(), rate_cents: z.number().int().min(0).max(10000000), color: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#647c45'), employee_ids: z.array(uid) }).parse(await req.json());
-            const eid = b.id ?? id(), old = await one('SELECT * FROM projects WHERE id=?', eid);
+            const b = z.object({ id: uid.optional(), time_tracking_enabled: z.number().int().min(0).max(1).optional(), name, description: z.string().max(3000).default(''), status: z.enum(['active', 'archived']), pay_basis: z.enum(['TASK','VIDEO_HOUR','WORKING_HOUR']).default('WORKING_HOUR'), spreadsheet_id: z.string().regex(/^[a-zA-Z0-9_-]*$/).max(200).default(''), hourly_target: z.number().int().min(0).max(10000).nullable(), rate_cents: z.number().int().min(0).max(10000000), color: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#647c45'), employee_ids: z.array(uid) }).parse(await req.json());
+            const eid = b.id ?? id(), old = await one('SELECT p.*,COALESCE(s.enabled,0) AS time_tracking_enabled FROM projects p LEFT JOIN project_time_tracking s ON s.project_id=p.id WHERE p.id=?', eid);
             if (b.id && !old)
                 fail('Project not found.', 404);
-            const ss = [stmt('INSERT INTO projects(id,name,description,status,hourly_target,rate_cents,color,pay_basis,spreadsheet_id) VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,description=excluded.description,status=excluded.status,hourly_target=excluded.hourly_target,rate_cents=excluded.rate_cents,color=excluded.color,pay_basis=excluded.pay_basis,spreadsheet_id=excluded.spreadsheet_id', eid, b.name, b.description, b.status, b.hourly_target, b.rate_cents, b.color, b.pay_basis, b.spreadsheet_id), stmt('DELETE FROM project_assignments WHERE project_id=?', eid), ...b.employee_ids.map(w => stmt('INSERT INTO project_assignments(project_id,user_id) VALUES(?,?)', eid, w)), audit(u, 'projects', eid, old ? 'updated' : 'created', old, b)];
+            const timeTracking = b.time_tracking_enabled ?? old?.time_tracking_enabled ?? 0;
+            const ss = [stmt('INSERT INTO projects(id,name,description,status,hourly_target,rate_cents,color,pay_basis,spreadsheet_id) VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,description=excluded.description,status=excluded.status,hourly_target=excluded.hourly_target,rate_cents=excluded.rate_cents,color=excluded.color,pay_basis=excluded.pay_basis,spreadsheet_id=excluded.spreadsheet_id', eid, b.name, b.description, b.status, b.hourly_target, b.rate_cents, b.color, b.pay_basis, b.spreadsheet_id), stmt('DELETE FROM project_assignments WHERE project_id=?', eid), ...b.employee_ids.map(w => stmt('INSERT INTO project_assignments(project_id,user_id) VALUES(?,?)', eid, w)), stmt('INSERT INTO project_time_tracking(project_id,enabled) VALUES(?,?) ON CONFLICT(project_id) DO UPDATE SET enabled=excluded.enabled', eid, timeTracking), audit(u, 'projects', eid, old ? 'updated' : 'created', old, { ...b, time_tracking_enabled: timeTracking })];
             ss.push(stmt("INSERT INTO sync_jobs(task_id,status,updated_at) SELECT id,'pending',? FROM task_entries WHERE project_id=? ON CONFLICT(task_id) DO UPDATE SET status='pending',updated_at=excluded.updated_at", now, eid));
             await DB().batch(ss);
             await safeSync(3);
@@ -566,6 +569,8 @@ export async function handle(req: Request) {
             return json({ error: 'Another payment or edit is in progress. Refresh and try again.' }, 409);
         if (message.includes('paid_work_locked') || message.includes('invoice_immutable'))
             return json({ error: 'This work has been paid and is locked. Payment records cannot be edited.' }, 409);
+        if (message.includes('time_tracking_disabled'))
+            return json({ error: 'Time tracking is disabled for this project. Ask an administrator to enable it in project settings.' }, 403);
         if (message.includes('running_timer'))
             return json({ error: 'Stop your timer before submitting this week.' }, 409);
         if (message.includes('overlapping_time'))
