@@ -15,7 +15,8 @@
     "seed": "node --env-file-if-exists=.env.local scripts/seed.mjs",
     "typecheck": "tsc --noEmit",
     "test:integration": "node --import tsx tests/integration.mjs",
-    "db:migrate": "node --env-file-if-exists=.env.local scripts/migrate.mjs"
+    "db:migrate": "node --env-file-if-exists=.env.local scripts/migrate.mjs",
+    "test:sheets": "node --import tsx tests/sheets.integration.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

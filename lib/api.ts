@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { DB, stmt, one, all, id, sha, token, hashPassword, checkPassword, cookie, setCookie, session, loginResponse, fail, originCheck, audit, config, constantEqual } from './auth';
-import { parseDuration, allocateTaskTime, duration, day, midnight, weekStart, addDays, splitDays, STATUSES, csv, xlsx } from './core.mjs';
+import { parseDuration, taskHours, hoursSignature, payrollRows, PAY_BASES, allocateTaskTime, duration, day, midnight, weekStart, addDays, splitDays, STATUSES, csv, xlsx } from './core.mjs';
 import { syncTasks } from './sheets';
 const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' } });
 const name = z.string().trim().min(1).max(150), password = z.string().min(12, 'Use at least 12 characters.').max(128), uid = z.string().min(1).max(100), date = z.string().refine(v => { try {
@@ -12,6 +12,7 @@ catch {
 } }, 'Invalid date'), email = z.string().trim().email().max(254).transform(v => v.toLowerCase());
 const admin = (u: any) => { if (u.role !== 'ADMIN')
     fail('Administrator access required.', 403); };
+const safeSync = async (limit = 3, taskId?: string) => { try { return await syncTasks(limit, taskId); } catch { return { synced: 0, pending: true, message: 'Saved in Workhub. Spreadsheet sync is queued for retry.' }; } };
 const queue = (task: string) => stmt("INSERT INTO sync_jobs(task_id,status,updated_at) VALUES(?,'pending',?) ON CONFLICT(task_id) DO UPDATE SET status='pending',updated_at=excluded.updated_at", task, Date.now());
 async function assignment(u: any, project: string, account?: string) { const p = await one("SELECT * FROM projects WHERE id=? AND status='active'", project); if (!p)
     fail('Choose an active project.'); if (u.role !== 'ADMIN' && !await one('SELECT 1 FROM project_assignments WHERE project_id=? AND user_id=?', project, u.id))
@@ -31,7 +32,7 @@ async function dailyWarning(user: string, start: number, end: number) { for (con
 } return null; }
 async function snapshot(u: any) {
     const where = u.role === 'ADMIN' ? '' : ' WHERE t.user_id=?', args = u.role === 'ADMIN' ? [] : [u.id];
-    return {
+    const result = {
         user: u, users: await all('SELECT id,name,email,role,active FROM users' + (u.role === 'ADMIN' ? '' : ' WHERE id=?'), ...args),
         projects: await all('SELECT * FROM projects' + (u.role === 'ADMIN' ? '' : ' WHERE id IN (SELECT project_id FROM project_assignments WHERE user_id=?)'), ...args),
         accounts: await all('SELECT * FROM accounts' + (u.role === 'ADMIN' ? '' : ' WHERE id IN (SELECT account_id FROM account_assignments WHERE user_id=?)'), ...args),
@@ -40,6 +41,9 @@ async function snapshot(u: any) {
         times: await all('SELECT t.* FROM time_entries t' + where + ' ORDER BY start_ms DESC', ...args), sheets: await all('SELECT t.* FROM timesheets t' + where + ' ORDER BY week_start DESC', ...args),
         sync: u.role === 'ADMIN' ? await all('SELECT * FROM sync_jobs') : [], settings: u.role === 'ADMIN' ? { spreadsheet_id: (await one("SELECT value FROM settings WHERE key='spreadsheet_id'"))?.value ?? '', google_configured: !!config('GOOGLE_CLIENT_ID'), sheets_configured: !!config('GOOGLE_SERVICE_ACCOUNT_JSON'), google_only: config('GOOGLE_ONLY') === 'true' } : {}
     };
+    const reviews = await all('SELECT r.* FROM task_hour_reviews r JOIN task_entries t ON t.id=r.task_id' + (u.role === 'ADMIN' ? '' : ' WHERE t.user_id=?'), ...args);
+    result.tasks = result.tasks.map((t: any) => taskHours(t, result.times, reviews.find((r: any) => r.task_id === t.id), result.sheets));
+    return result;
 }
 export async function handle(req: Request) {
     try {
@@ -162,7 +166,7 @@ export async function handle(req: Request) {
             if (old)
                 statements.push(stmt('UPDATE task_entries SET date=?,video_id=?,duration_seconds=?,status=?,notes=?,version=?,updated_at=? WHERE id=?', b.date, b.video_id, seconds, b.status, b.notes, b.version! + 1, now, taskId));
             else
-                statements.push(stmt('INSERT INTO task_entries(id,date,project_id,account_id,user_id,video_id,duration_seconds,status,notes,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)', taskId, b.date, b.project_id, b.account_id, u.id, b.video_id, seconds, b.status, b.notes, now, now));
+                statements.push(stmt('INSERT INTO task_entries(id,date,project_id,account_id,user_id,video_id,duration_seconds,status,notes,created_at,updated_at,pay_basis,rate_cents) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)', taskId, b.date, b.project_id, b.account_id, u.id, b.video_id, seconds, b.status, b.notes, now, now, p.pay_basis, p.rate_cents));
             if (b.minutes > 0) {
                 if (old)
                     fail('Edit working time in Timesheets to avoid double counting.');
@@ -173,7 +177,7 @@ export async function handle(req: Request) {
                 catch (error) { fail((error as Error).message); }
                 for (const slot of slots!) {
                     await editableWeek(u.id, slot.start_ms, slot.end_ms);
-                    statements.push(stmt("INSERT INTO time_entries(id,project_id,user_id,task_id,start_ms,end_ms,rate_cents,source,notes,created_at) VALUES(?,?,?,?,?,?,?,'task',?,?)", id(), b.project_id, u.id, taskId, slot.start_ms, slot.end_ms, p.rate_cents, 'Task minutes: automatically allocated; not exact clock times.', now));
+                    statements.push(stmt("INSERT INTO time_entries(id,project_id,user_id,task_id,start_ms,end_ms,rate_cents,source,notes,created_at,pay_basis) VALUES(?,?,?,?,?,?,?,'task',?,?,?)", id(), b.project_id, u.id, taskId, slot.start_ms, slot.end_ms, p.rate_cents, 'Task minutes: automatically allocated; not exact clock times.', now, p.pay_basis));
                 }
             }
             statements.push(audit(u, 'task_entries', taskId, old ? 'updated' : 'created', old, after), queue(taskId));
@@ -185,7 +189,22 @@ export async function handle(req: Request) {
                     sync = 'synced';
             }
             catch { /* durable outbox retries from Settings */ }
-            return json({ saved: true, id: taskId, sync, warning: b.minutes ? await dailyWarning(u.id, b.start_ms!, b.start_ms! + b.minutes * 60000) : null });
+            return json({ saved: true, id: taskId, sync, warning: b.minutes ? await dailyWarning(u.id, midnight(b.date), midnight(addDays(b.date, 1))) : null });
+        }
+        if (path === 'task-hours' && method === 'POST') {
+            admin(u);
+            const b = z.object({ task_id: uid, signature: z.string().max(100000), action: z.enum(['approve', 'return']) }).parse(await req.json());
+            const task = await one('SELECT * FROM task_entries WHERE id=?', b.task_id);
+            if (!task) fail('Task not found.', 404);
+            const times = await all('SELECT * FROM time_entries WHERE task_id=? ORDER BY id', b.task_id);
+            if (!times.length || times.some(t => !t.end_ms)) fail('Log hours and stop linked timers before reviewing.');
+            const signature = hoursSignature(task, times);
+            if (signature !== b.signature) fail('Working time changed. Refresh before reviewing.', 409);
+            const status = b.action === 'approve' ? 'APPROVED' : 'RETURNED';
+            const old = await one('SELECT * FROM task_hour_reviews WHERE task_id=?', b.task_id);
+            await DB().batch([stmt('INSERT INTO task_hour_reviews(task_id,signature,status,reviewed_by,reviewed_at) VALUES(?,?,?,?,?) ON CONFLICT(task_id) DO UPDATE SET signature=excluded.signature,status=excluded.status,reviewed_by=excluded.reviewed_by,reviewed_at=excluded.reviewed_at', b.task_id, signature, status, u.id, now), audit(u, 'task_hours', b.task_id, b.action, old, {status, signature}), queue(b.task_id)]);
+            await safeSync(1, b.task_id);
+            return json({saved:true});
         }
         if (path === 'time' && method === 'POST') {
             const b = z.object({ id: uid.optional(), project_id: uid, task_id: uid.nullable().optional(), start_ms: z.number().int(), end_ms: z.number().int(), notes: z.string().max(2000).default('') }).parse(await req.json());
@@ -203,11 +222,15 @@ export async function handle(req: Request) {
                 await editableWeek(u.id, old.start_ms, old.end_ms);
             if (b.task_id && !await one('SELECT 1 FROM task_entries WHERE id=? AND user_id=? AND project_id=?', b.task_id, u.id, b.project_id))
                 fail('Choose your own task in the same project.');
+            const linked = b.task_id ? await one('SELECT pay_basis,rate_cents FROM task_entries WHERE id=?', b.task_id) : null;
+            const payBasis = old && old.project_id === b.project_id && old.task_id === (b.task_id ?? null) ? old.pay_basis : linked?.pay_basis ?? p.pay_basis;
+            const capturedRate = old && old.project_id === b.project_id && old.task_id === (b.task_id ?? null) ? old.rate_cents : linked?.rate_cents ?? p.rate_cents;
             const eid = b.id ?? id();
-            const statements = [old ? stmt('UPDATE time_entries SET project_id=?,task_id=?,start_ms=?,end_ms=?,notes=?,rate_cents=? WHERE id=?', b.project_id, b.task_id ?? null, b.start_ms, b.end_ms, b.notes, old.project_id === b.project_id ? old.rate_cents : p.rate_cents, eid) : stmt("INSERT INTO time_entries(id,project_id,user_id,task_id,start_ms,end_ms,rate_cents,source,notes,created_at) VALUES(?,?,?,?,?,?,?,'manual',?,?)", eid, b.project_id, u.id, b.task_id ?? null, b.start_ms, b.end_ms, p.rate_cents, b.notes, now), audit(u, 'time_entries', eid, old ? 'updated' : 'created', old, b)];
+            const statements = [old ? stmt('UPDATE time_entries SET project_id=?,task_id=?,start_ms=?,end_ms=?,notes=?,rate_cents=?,pay_basis=? WHERE id=?', b.project_id, b.task_id ?? null, b.start_ms, b.end_ms, b.notes, capturedRate, payBasis, eid) : stmt("INSERT INTO time_entries(id,project_id,user_id,task_id,start_ms,end_ms,rate_cents,source,notes,created_at,pay_basis) VALUES(?,?,?,?,?,?,?,'manual',?,?,?)", eid, b.project_id, u.id, b.task_id ?? null, b.start_ms, b.end_ms, capturedRate, b.notes, now, payBasis), audit(u, 'time_entries', eid, old ? 'updated' : 'created', old, b)];
             for (const tid of new Set([old?.task_id, b.task_id].filter(Boolean)))
                 statements.push(queue(tid as string));
             await DB().batch(statements);
+            await safeSync(3);
             return json({ saved: true, warning: await dailyWarning(u.id, b.start_ms, b.end_ms) });
         }
         if (path === 'timer' && method === 'POST') {
@@ -220,8 +243,9 @@ export async function handle(req: Request) {
                 await editableWeek(u.id, now);
                 if (b.task_id && !await one('SELECT 1 FROM task_entries WHERE id=? AND user_id=? AND project_id=?', b.task_id, u.id, p.id))
                     fail('Choose your own task in this project.');
+                const linked = b.task_id ? await one('SELECT pay_basis,rate_cents FROM task_entries WHERE id=?', b.task_id) : null;
                 const eid = id();
-                await DB().batch([stmt("INSERT INTO time_entries(id,project_id,user_id,task_id,start_ms,end_ms,rate_cents,source,notes,created_at) VALUES(?,?,?,?,?,NULL,?,'timer','',?)", eid, p.id, u.id, b.task_id ?? null, now, p.rate_cents, now), audit(u, 'time_entries', eid, 'timer_started', null, { project_id: p.id, task_id: b.task_id ?? null })]);
+                await DB().batch([stmt("INSERT INTO time_entries(id,project_id,user_id,task_id,start_ms,end_ms,rate_cents,source,notes,created_at,pay_basis) VALUES(?,?,?,?,?,NULL,?,'timer','',?,?)", eid, p.id, u.id, b.task_id ?? null, now, linked?.rate_cents ?? p.rate_cents, now, linked?.pay_basis ?? p.pay_basis), audit(u, 'time_entries', eid, 'timer_started', null, { project_id: p.id, task_id: b.task_id ?? null })]);
                 return json({ saved: true });
             }
             if (!active)
@@ -231,6 +255,7 @@ export async function handle(req: Request) {
             if (active.task_id)
                 statements.push(queue(active.task_id));
             await DB().batch(statements);
+            await safeSync(3);
             return json({ saved: true, warning: await dailyWarning(u.id, active.start_ms, now) });
         }
         if (path === 'timesheets' && method === 'POST') {
@@ -263,12 +288,14 @@ export async function handle(req: Request) {
         }
         if (path === 'projects' && method === 'POST') {
             admin(u);
-            const b = z.object({ id: uid.optional(), name, description: z.string().max(3000).default(''), status: z.enum(['active', 'archived']), hourly_target: z.number().int().min(0).max(10000).nullable(), rate_cents: z.number().int().min(0).max(10000000), color: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#647c45'), employee_ids: z.array(uid) }).parse(await req.json());
+            const b = z.object({ id: uid.optional(), name, description: z.string().max(3000).default(''), status: z.enum(['active', 'archived']), pay_basis: z.enum(['TASK','VIDEO_HOUR','WORKING_HOUR']).default('WORKING_HOUR'), spreadsheet_id: z.string().regex(/^[a-zA-Z0-9_-]*$/).max(200).default(''), hourly_target: z.number().int().min(0).max(10000).nullable(), rate_cents: z.number().int().min(0).max(10000000), color: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#647c45'), employee_ids: z.array(uid) }).parse(await req.json());
             const eid = b.id ?? id(), old = await one('SELECT * FROM projects WHERE id=?', eid);
             if (b.id && !old)
                 fail('Project not found.', 404);
-            const ss = [stmt('INSERT INTO projects(id,name,description,status,hourly_target,rate_cents,color) VALUES(?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,description=excluded.description,status=excluded.status,hourly_target=excluded.hourly_target,rate_cents=excluded.rate_cents,color=excluded.color', eid, b.name, b.description, b.status, b.hourly_target, b.rate_cents, b.color), stmt('DELETE FROM project_assignments WHERE project_id=?', eid), ...b.employee_ids.map(w => stmt('INSERT INTO project_assignments(project_id,user_id) VALUES(?,?)', eid, w)), audit(u, 'projects', eid, old ? 'updated' : 'created', old, b)];
+            const ss = [stmt('INSERT INTO projects(id,name,description,status,hourly_target,rate_cents,color,pay_basis,spreadsheet_id) VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,description=excluded.description,status=excluded.status,hourly_target=excluded.hourly_target,rate_cents=excluded.rate_cents,color=excluded.color,pay_basis=excluded.pay_basis,spreadsheet_id=excluded.spreadsheet_id', eid, b.name, b.description, b.status, b.hourly_target, b.rate_cents, b.color, b.pay_basis, b.spreadsheet_id), stmt('DELETE FROM project_assignments WHERE project_id=?', eid), ...b.employee_ids.map(w => stmt('INSERT INTO project_assignments(project_id,user_id) VALUES(?,?)', eid, w)), audit(u, 'projects', eid, old ? 'updated' : 'created', old, b)];
+            ss.push(stmt("INSERT INTO sync_jobs(task_id,status,updated_at) SELECT id,'pending',? FROM task_entries WHERE project_id=? ON CONFLICT(task_id) DO UPDATE SET status='pending',updated_at=excluded.updated_at", now, eid));
             await DB().batch(ss);
+            await safeSync(3);
             return json({ saved: true, id: eid });
         }
         if (path === 'accounts' && method === 'POST') {
@@ -282,7 +309,8 @@ export async function handle(req: Request) {
             for (const who of b.employee_ids)
                 if (!await one('SELECT 1 FROM project_assignments WHERE project_id=? AND user_id=?', b.project_id, who))
                     fail('Assign employees to the project before assigning its accounts.');
-            await DB().batch([stmt('INSERT INTO accounts(id,project_id,name,active,sheet_tab) VALUES(?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,active=excluded.active,sheet_tab=excluded.sheet_tab', eid, b.project_id, b.name, b.active, b.sheet_tab), stmt('DELETE FROM account_assignments WHERE account_id=?', eid), ...b.employee_ids.map(w => stmt('INSERT INTO account_assignments(account_id,user_id) VALUES(?,?)', eid, w)), audit(u, 'accounts', eid, old ? 'updated' : 'created', old, b)]);
+            await DB().batch([stmt('INSERT INTO accounts(id,project_id,name,active,sheet_tab) VALUES(?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,active=excluded.active,sheet_tab=excluded.sheet_tab', eid, b.project_id, b.name, b.active, b.sheet_tab), stmt('DELETE FROM account_assignments WHERE account_id=?', eid), ...b.employee_ids.map(w => stmt('INSERT INTO account_assignments(account_id,user_id) VALUES(?,?)', eid, w)), audit(u, 'accounts', eid, old ? 'updated' : 'created', old, b), stmt("INSERT INTO sync_jobs(task_id,status,updated_at) SELECT id,'pending',? FROM task_entries WHERE account_id=? ON CONFLICT(task_id) DO UPDATE SET status='pending',updated_at=excluded.updated_at", now, eid)]);
+            await safeSync(3);
             return json({ saved: true });
         }
         if (path === 'users' && method === 'POST') {
@@ -299,9 +327,11 @@ export async function handle(req: Request) {
                 fail('Provide an initial password, or configure Google sign-in.');
             const hash = b.password ? await hashPassword(b.password) : null;
             const ss = [stmt('INSERT INTO users(id,name,email,role,active,password_hash,created_at) VALUES(?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,email=excluded.email,role=excluded.role,active=excluded.active,password_hash=COALESCE(excluded.password_hash,users.password_hash),google_sub=CASE WHEN excluded.email!=users.email THEN NULL ELSE users.google_sub END', eid, b.name, b.email, b.role, b.active, hash, now), audit(u, 'users', eid, old ? 'updated' : 'created', old, { name: b.name, email: b.email, role: b.role, active: b.active })];
+            ss.push(stmt("INSERT INTO sync_jobs(task_id,status,updated_at) SELECT id,'pending',? FROM task_entries WHERE user_id=? ON CONFLICT(task_id) DO UPDATE SET status='pending',updated_at=excluded.updated_at", now, eid));
             if (old)
                 ss.push(stmt('DELETE FROM sessions WHERE user_id=?', eid));
             await DB().batch(ss);
+            await safeSync(3);
             return json({ saved: true });
         }
         if (path === 'audit' && method === 'GET') {
@@ -313,12 +343,13 @@ export async function handle(req: Request) {
         if (path === 'settings' && method === 'POST') {
             admin(u);
             const b = z.object({ spreadsheet_id: z.string().regex(/^[a-zA-Z0-9_-]*$/).max(200) }).parse(await req.json());
-            await DB().batch([stmt("INSERT INTO settings(key,value) VALUES('spreadsheet_id',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", b.spreadsheet_id), audit(u, 'settings', 'spreadsheet_id', 'updated', null, b)]);
+            await DB().batch([stmt("INSERT INTO settings(key,value) VALUES('spreadsheet_id',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", b.spreadsheet_id), audit(u, 'settings', 'spreadsheet_id', 'updated', null, b), stmt("INSERT INTO sync_jobs(task_id,status,updated_at) SELECT id,'pending',? FROM task_entries WHERE 1 ON CONFLICT(task_id) DO UPDATE SET status='pending',updated_at=excluded.updated_at", now)]);
+            await safeSync(3);
             return json({ saved: true });
         }
         if (path === 'sync' && method === 'POST') {
             admin(u);
-            return json(await syncTasks(3));
+            return json(await safeSync(3));
         }
         if (path === 'export' && method === 'GET') {
             const data = await snapshot(u), q = new URL(req.url).searchParams, from = q.get('from') || '1970-01-01', to = q.get('to') || '2100-01-01', kind = q.get('kind') || 'tasks';
@@ -327,7 +358,7 @@ export async function handle(req: Request) {
             const person = (x: string) => data.users.find((p: any) => p.id === x)?.name ?? '', project = (x: string) => data.projects.find((p: any) => p.id === x)?.name ?? '', account = (x: string) => data.accounts.find((p: any) => p.id === x)?.name ?? '';
             const tasks = data.tasks.filter((t: any) => t.date >= from && t.date <= to && (!q.get('project') || t.project_id === q.get('project')) && (!q.get('employee') || t.user_id === q.get('employee')) && (!q.get('account') || t.account_id === q.get('account')) && (!q.get('status') || t.status === q.get('status')) && (!q.get('search') || [t.video_id, t.notes, person(t.user_id), account(t.account_id)].join(' ').toLowerCase().includes(q.get('search')!.toLowerCase())));
             let rows: any[][] = [['DATE', 'VIDEO ID', 'DURATION (h:mm:ss)', 'STATUS', 'ANNOTATOR', 'PROJECT', 'ACCOUNT', 'TIME SPENT (h:mm:ss)', 'NOTES'], ...tasks.map((t: any) => [t.date, t.video_id, duration(t.duration_seconds), t.status, person(t.user_id), project(t.project_id), account(t.account_id), duration(t.spent_seconds), t.notes])];
-            if (kind === 'timesheets' || kind === 'payroll') {
+            if (kind === 'timesheets') {
                 rows = [['DATE', 'ANNOTATOR', 'PROJECT', 'START (Asia/Manila)', 'END (Asia/Manila)', 'HOURS', 'HOURLY RATE (PHP)', 'GROSS PAY (PHP)', 'TIMESHEET STATUS']];
                 for (const t of data.times) {
                     if (!t.end_ms || q.get('employee') && q.get('employee') !== t.user_id || q.get('project') && q.get('project') !== t.project_id || q.get('account') && !data.tasks.some((r: any) => r.id === t.task_id && r.account_id === q.get('account')) || q.get('status') && !data.tasks.some((r: any) => r.id === t.task_id && r.status === q.get('status')))
@@ -339,6 +370,10 @@ export async function handle(req: Request) {
                         rows.push([d.date, person(t.user_id), project(t.project_id), new Date(Math.max(t.start_ms, midnight(d.date)) + 28800000).toISOString().slice(0, 19), new Date(Math.min(t.end_ms, midnight(addDays(d.date, 1))) + 28800000).toISOString().slice(0, 19), Number((d.seconds / 3600).toFixed(4)), t.rate_cents / 100, Number((d.seconds / 3600 * t.rate_cents / 100).toFixed(2)), status]);
                     }
                 }
+            }
+            if (kind === 'payroll') {
+                const pay = payrollRows(data, Object.fromEntries(q));
+                rows = [['DATE','EMPLOYEE','PROJECT','TASK ID','PAY BASIS','UNITS','RATE (PHP)','ESTIMATED PAY (PHP)','APPROVED PAY (PHP)','STATUS'], ...pay.map((r: any) => [r.date,person(r.user_id),project(r.project_id),data.tasks.find((t:any)=>t.id===r.task_id)?.video_id ?? '',PAY_BASES[r.pay_basis as keyof typeof PAY_BASES],r.units,r.rate_cents/100,Math.round(r.cents)/100,Math.round(r.approved_cents)/100,r.status])];
             }
             const summary = [['STATUS', 'TASK COUNT'], ...STATUSES.map(s => [s, tasks.filter((t: any) => t.status === s).length])];
             const isXlsx = q.get('format') === 'xlsx', body = isXlsx ? xlsx([{ name: kind === 'tasks' ? 'Task logs' : 'Working time', rows }, ...(kind === 'tasks' ? [{ name: 'Status summary', rows: summary }] : [])]) : csv(rows);

@@ -31,3 +31,28 @@ test('task minutes fit gaps without overlapping timers or crossing dates', async
  assert.throws(()=>allocateTaskTime('2026-11-03',1,[],now),/today or an earlier/);
  assert.throws(()=>allocateTaskTime('2026-10-30',1.5,[],now),/whole minutes/);
 });
+
+test('payroll applies one captured pay basis and uses the right approval', async () => {
+ const {payrollRows}=await import('../lib/core.mjs');
+ const a=midnight('2026-10-30');
+ const tasks=[
+ {id:'task',date:'2026-10-30',user_id:'u',project_id:'p',pay_basis:'TASK',rate_cents:5000,duration_seconds:3600,status:'APPROVED'},
+ {id:'video',date:'2026-10-30',user_id:'u',project_id:'p',pay_basis:'VIDEO_HOUR',rate_cents:20000,duration_seconds:1800,status:'PENDING'},
+ {id:'work',date:'2026-10-30',user_id:'u',project_id:'p',pay_basis:'WORKING_HOUR',rate_cents:10000,duration_seconds:999,status:'PENDING',hours_status:'APPROVED'}
+ ];
+ const times=tasks.map((t,i)=>({id:t.id,task_id:t.id,user_id:'u',project_id:'p',pay_basis:t.pay_basis,rate_cents:t.rate_cents,start_ms:a+i*3600000,end_ms:a+(i+1)*3600000}));
+ const rows=payrollRows({tasks,times,sheets:[]});
+ assert.equal(rows.length,3);
+ assert.equal(rows.reduce((s,r)=>s+r.cents,0),25000);
+ assert.equal(rows.reduce((s,r)=>s+r.approved_cents,0),15000);
+ assert.equal(payrollRows({tasks,times,sheets:[]},{employee:'someone-else'}).length,0);
+});
+test('changing linked hours invalidates an approval', async () => {
+ const {taskHours,hoursSignature}=await import('../lib/core.mjs');
+ const task={id:'t',date:'2026-10-30',user_id:'u',project_id:'p'};
+ const times=[{id:'r',task_id:'t',start_ms:1,end_ms:60001,rate_cents:100,user_id:'u',project_id:'p'}];
+ const review={status:'APPROVED',signature:hoursSignature(task,times)};
+ assert.equal(taskHours(task,times,review).hours_status,'APPROVED');
+ assert.equal(taskHours(task,[{...times[0],end_ms:120001}],review).hours_status,'PENDING');
+ assert.equal(taskHours(task,[{...times[0],end_ms:null}],review).hours_status,'RUNNING');
+});
