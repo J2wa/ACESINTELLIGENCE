@@ -1,7 +1,9 @@
+import { invoicePdf } from './invoice-pdf';
 import { z } from 'zod';
 import { DB, stmt, one, all, id, sha, token, hashPassword, checkPassword, cookie, setCookie, session, loginResponse, fail, originCheck, audit, config, constantEqual } from './auth';
 import { parseDuration, taskHours, hoursSignature, payrollRows, PAY_BASES, allocateTaskTime, duration, day, midnight, weekStart, addDays, splitDays, STATUSES, csv, xlsx } from './core.mjs';
 import { syncTasks } from './sheets';
+import { ensurePayrollSchema, paymentPreview, recordPayment, invoiceDetail } from './payroll';
 const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' } });
 const name = z.string().trim().min(1).max(150), password = z.string().min(12, 'Use at least 12 characters.').max(128), uid = z.string().min(1).max(100), date = z.string().refine(v => { try {
     midnight(v);
@@ -38,8 +40,9 @@ async function snapshot(u: any) {
         projects: await all('SELECT * FROM projects' + (u.role === 'ADMIN' ? '' : ' WHERE id IN (SELECT project_id FROM project_assignments WHERE user_id=?)'), ...args),
         accounts: await all('SELECT * FROM accounts' + (u.role === 'ADMIN' ? '' : ' WHERE id IN (SELECT account_id FROM account_assignments WHERE user_id=?)'), ...args),
         assignments: await all('SELECT * FROM project_assignments' + (u.role === 'ADMIN' ? '' : ' WHERE user_id=?'), ...args), account_assignments: await all('SELECT * FROM account_assignments' + (u.role === 'ADMIN' ? '' : ' WHERE user_id=?'), ...args),
-        tasks: await all('SELECT t.*,(SELECT COALESCE(SUM((end_ms-start_ms)/1000),0) FROM time_entries WHERE task_id=t.id AND end_ms IS NOT NULL) AS spent_seconds FROM task_entries t' + where + ' ORDER BY date DESC,created_at DESC', ...args),
-        times: await all('SELECT t.* FROM time_entries t' + where + ' ORDER BY start_ms DESC', ...args), sheets: await all('SELECT t.* FROM timesheets t' + where + ' ORDER BY week_start DESC', ...args),
+        tasks: await all('SELECT t.*,(SELECT invoice_id FROM payment_tasks WHERE task_id=t.id) AS paid_invoice_id,(SELECT COALESCE(SUM((end_ms-start_ms)/1000),0) FROM time_entries WHERE task_id=t.id AND end_ms IS NOT NULL) AS spent_seconds FROM task_entries t' + where + ' ORDER BY date DESC,created_at DESC', ...args),
+        times: await all('SELECT t.*,(SELECT invoice_id FROM payment_times WHERE time_entry_id=t.id) AS paid_invoice_id FROM time_entries t' + where + ' ORDER BY start_ms DESC', ...args), sheets: await all('SELECT t.* FROM timesheets t' + where + ' ORDER BY week_start DESC', ...args),
+        invoices: await all('SELECT t.* FROM payment_invoices t' + where + ' ORDER BY paid_at DESC,number DESC', ...args), invoice_items: await all('SELECT t.* FROM payment_invoice_items t' + where, ...args),
         sync: u.role === 'ADMIN' ? await all('SELECT * FROM sync_jobs') : [], settings: u.role === 'ADMIN' ? { spreadsheet_id: (await one("SELECT value FROM settings WHERE key='spreadsheet_id'"))?.value ?? '', google_configured: !!config('GOOGLE_CLIENT_ID'), sheets_configured: !!config('GOOGLE_SERVICE_ACCOUNT_JSON'), google_only: config('GOOGLE_ONLY') === 'true' } : {}
     };
     const reviews = await all('SELECT r.* FROM task_hour_reviews r JOIN task_entries t ON t.id=r.task_id' + (u.role === 'ADMIN' ? '' : ' WHERE t.user_id=?'), ...args);
@@ -59,6 +62,7 @@ export async function handle(req: Request) {
         }
         if (path === 'auth/me') {
             const u = await session(req);
+            if (u) await ensurePayrollSchema();
             return json({ user: u, setup: !await one('SELECT id FROM users LIMIT 1'), owner_setup: false, google_configured: !!config('GOOGLE_CLIENT_ID'), google_only: config('GOOGLE_ONLY') === 'true' });
         }
         if (path === 'auth/setup' && method === 'POST') {
@@ -128,6 +132,7 @@ export async function handle(req: Request) {
         const u = await session(req);
         if (!u)
             fail('Your session has expired. Please sign in.', 401);
+        await ensurePayrollSchema();
         if (path === 'auth/logout' && method === 'POST') {
             await stmt('DELETE FROM sessions WHERE token_hash=?', await sha(cookie(req, 'aces_session'))).run();
             return new Response('{}', { headers: { 'Set-Cookie': setCookie(req, 'aces_session', '', 0) } });
@@ -141,6 +146,31 @@ export async function handle(req: Request) {
         }
         if (path === 'workspace' && method === 'GET')
             return json(await snapshot(u));
+        if (['payroll/preview', 'payroll/pay'].includes(path) && method === 'POST') {
+            admin(u);
+            const filtersInput = z.object({ from: date.optional(), to: date.optional(), employee: z.string().max(100).optional(), project: z.string().max(100).optional(), account: z.string().max(100).optional(), status: z.string().max(50).optional() }).strict();
+            if (path === 'payroll/preview') {
+                const b = z.object({ filters: filtersInput }).strict().parse(await req.json());
+                if (b.filters.from && b.filters.to && b.filters.from > b.filters.to) fail('Choose a valid date range.');
+                return json(await paymentPreview(u, b.filters));
+            }
+            const b = z.object({ filters: filtersInput, signature:z.string().regex(/^[a-f0-9]{64}$/), request_id:z.string().uuid(), reference:z.string().max(250).default(''), notes:z.string().max(2000).default('') }).strict().parse(await req.json());
+            const result = await recordPayment(u, b);
+            await safeSync(3);
+            return json(result);
+        }
+        if (path.startsWith('invoices/') && method === 'GET') {
+            const invoice = await invoiceDetail(u, path.slice('invoices/'.length));
+            if (new URL(req.url).searchParams.get('format') === 'pdf') {
+                const body = await invoicePdf(invoice);
+                return new Response(new Uint8Array(body), { headers: { 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="${invoice.number}.pdf"`, 'Cache-Control': 'private, no-store' } });
+            }
+            if (new URL(req.url).searchParams.get('format') === 'csv') {
+                const body = csv([['INVOICE',invoice.number],['EMPLOYEE',invoice.employee_name],['PAID ON',new Date(invoice.paid_at).toISOString()],['TOTAL PAID (PHP)',invoice.total_cents/100],['REFERENCE',invoice.reference],['NOTES',invoice.notes],[],['WORK DATE','TASK ID','PROJECT','ACCOUNT','PAY BASIS','UNITS','RATE (PHP)','PAID (PHP)'],...invoice.items.map((line:any)=>[line.work_date,line.task_label,line.project_name,line.account_name,PAY_BASES[line.pay_basis as keyof typeof PAY_BASES],line.units,line.rate_cents/100,line.amount_cents/100])]);
+                return new Response(body,{headers:{'Content-Type':'text/csv; charset=utf-8','Content-Disposition':`attachment; filename="${invoice.number}.csv"`,'Cache-Control':'no-store'}});
+            }
+            return json(invoice);
+        }
         if (path === 'tasks' && method === 'POST') {
             const b = taskInput.parse(await req.json());
             const seconds = parseDuration(b.duration), old = b.id ? await one('SELECT * FROM task_entries WHERE id=?', b.id) : null;
@@ -471,7 +501,7 @@ export async function handle(req: Request) {
             }
             if (kind === 'payroll') {
                 const pay = payrollRows(data, Object.fromEntries(q));
-                rows = [['DATE','EMPLOYEE','PROJECT','TASK ID','PAY BASIS','UNITS','RATE (PHP)','ESTIMATED PAY (PHP)','APPROVED PAY (PHP)','STATUS'], ...pay.map((r: any) => [r.date,person(r.user_id),project(r.project_id),data.tasks.find((t:any)=>t.id===r.task_id)?.video_id ?? '',PAY_BASES[r.pay_basis as keyof typeof PAY_BASES],r.units,r.rate_cents/100,Math.round(r.cents)/100,Math.round(r.approved_cents)/100,r.status])];
+                rows = [['DATE','EMPLOYEE','PROJECT','TASK ID','PAY BASIS','UNITS','RATE (PHP)','ESTIMATED PAY (PHP)','UNPAID APPROVED PAY (PHP)','PAID (PHP)','STATUS','PAYMENT STATUS','INVOICE ID'], ...pay.map((r: any) => [r.date,person(r.user_id),project(r.project_id),data.tasks.find((t:any)=>t.id===r.task_id)?.video_id ?? '',PAY_BASES[r.pay_basis as keyof typeof PAY_BASES],r.units,r.rate_cents/100,Math.round(r.cents)/100,r.paid_invoice_id?0:Math.round(r.approved_cents)/100,r.paid_invoice_id?Math.round(r.cents)/100:0,r.status,r.paid_invoice_id?'PAID':'UNPAID',r.paid_invoice_id??''])];
             }
             const summary = [['STATUS', 'TASK COUNT'], ...STATUSES.map(s => [s, tasks.filter((t: any) => t.status === s).length])];
             const isXlsx = q.get('format') === 'xlsx', body = isXlsx ? xlsx([{ name: kind === 'tasks' ? 'Task logs' : 'Working time', rows }, ...(kind === 'tasks' ? [{ name: 'Status summary', rows: summary }] : [])]) : csv(rows);
@@ -485,6 +515,10 @@ export async function handle(req: Request) {
         const message = String(error.message ?? '');
         if (message.startsWith('Use h:mm:ss') || message === 'Invalid date')
             return json({ error: message }, 400);
+        if (message.includes('SQLITE_BUSY') || message.includes('SQLITE_LOCKED'))
+            return json({ error: 'Another payment or edit is in progress. Refresh and try again.' }, 409);
+        if (message.includes('paid_work_locked') || message.includes('invoice_immutable'))
+            return json({ error: 'This work has been paid and is locked. Payment records cannot be edited.' }, 409);
         if (message.includes('running_timer'))
             return json({ error: 'Stop your timer before submitting this week.' }, 409);
         if (message.includes('overlapping_time'))

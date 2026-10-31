@@ -13,3 +13,9 @@
 **Submit your week.** Timesheets use Monday–Sunday in Asia/Manila. Stop any running timer, check daily and project totals, then Submit week. Submitted/approved weeks are locked. If your coordinator returns it, read the comment, correct it and submit again.
 
 **Finish your session.** Stop the timer when you finish. It continues on the server even if the browser is closed. Sign out from Settings on shared computers. Export your own task log/timesheet if needed; choose XLSX to preserve text IDs automatically, or import CSV ID columns as text.
+
+## Earnings and invoices
+
+Open **Payroll** to see your lifetime earnings, monthly earnings, paid total, unpaid approved balance, and payment history. Monthly earnings use the date the work was performed. Pending, unapproved work does not count as approved earnings.
+
+Once your coordinator records payment, included tasks and time entries show as paid and cannot be edited or given additional working time. Open **View invoice** to see the amount paid and each included task or project-time entry. Use **Export invoice PDF** for a printable invoice, or download the invoice as CSV. Each employee can access only their own invoices.

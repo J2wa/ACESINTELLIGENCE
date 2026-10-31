@@ -11,3 +11,13 @@
 9. Deactivate departed employees in Team and archive completed projects. These preserve history. Changing an employee account revokes its sessions. Password resets are handled through Team, not email links.
 10. Review Settings → Workspace history for who changed what and when. Passwords and Google service-account secrets are never recorded in audit values.
 
+
+## Record approved pay
+
+Open Payroll, set the employee/project/date filters, and choose **Pay approved pay**. Review the total, employees, and included work, optionally add a payment reference and notes, then choose **Confirm paid** to record the completed payment. One invoice is created per employee. This action records payment in Workhub; fund transfers are handled outside Workhub.
+
+Task payments include the entire task and its linked hours. Unlinked project-time entries must fall entirely within the selected dates. Pending work, running timers, and already-paid work are excluded. Payment recording rechecks the preview inside a write transaction and safely handles retries.
+
+Paid tasks and hours are read-only, including through the API. Payment invoices retain the original employee, project, account, rate, units, work dates, and amounts. Use **Invoices & payment history** to inspect an invoice, export its PDF, or download its CSV.
+
+Lifetime and monthly earnings include paid amounts plus unpaid approved earnings. Monthly earnings use the work date, while invoices show the payment date. Earnings totals ignore the date/project filters and follow the selected employee.

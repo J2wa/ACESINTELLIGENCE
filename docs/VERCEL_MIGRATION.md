@@ -16,3 +16,5 @@ Environment changes require a new deployment. ADMIN_PASSWORD_HASH initializes on
 Google Sheets is optional: set GOOGLE_SERVICE_ACCOUNT_JSON, share the tracker with that service account, then configure the spreadsheet and tabs in Settings/Projects.
 
 The code has local build and API tests. A remote Turso connection, real Google OAuth, Google Sheets and a live Vercel deployment still need configured provider accounts and live verification.
+
+Payment records use the additive `0002_payments.sql` migration. The same idempotent migration is applied automatically on the first authenticated request after deployment, so payment tables and paid-work guards are ready before workspace reads or edits. It creates new tables/triggers without rewriting existing tasks or times. The normal migration command remains compatible with this bootstrap. Runtime SQL and the versioned migration are checked for equality in tests.
