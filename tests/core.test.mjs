@@ -1,0 +1,11 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {parseDuration,duration,day,midnight,weekStart,duplicateEntry,overlaps,splitDays,csv,xlsx} from '../lib/core.mjs';
+test('duration parsing distinguishes video length from work time',()=>{assert.equal(parseDuration('1:02:03'),3723);assert.equal(duration(3723),'1:02:03');assert.equal(parseDuration('0:00:00'),0);assert.equal(parseDuration('125:59:59'),453599);});
+test('invalid durations are rejected',()=>{for(const value of ['1:60:00','1:00:60','-1:00:00','1:2:3','01:22',' 1:02:03','1.5:00:00','123456:00:00'])assert.throws(()=>parseDuration(value));});
+test('duplicate scope is exact project, account and text ID',()=>{const entries=[{id:'one',project_id:'p',account_id:'a',video_id:'00012'}];assert.equal(duplicateEntry(entries,'p','a','00012').id,'one');for(const [p,a,v]of [['p2','a','00012'],['p','b','00012'],['p','a','12'],['p','a','00012 ']])assert.equal(duplicateEntry(entries,p,a,v),undefined);assert.equal(duplicateEntry(entries,'p','a','00012','one'),undefined);});
+test('half-open intervals allow adjacency but reject overlap and active timers',()=>{assert.equal(overlaps({start_ms:0,end_ms:10},{start_ms:10,end_ms:20}),false);assert.equal(overlaps({start_ms:0,end_ms:11},{start_ms:10,end_ms:20}),true);assert.equal(overlaps({start_ms:0,end_ms:null},{start_ms:10,end_ms:20}),true);});
+test('Manila date and Monday boundary use UTC+08 even on UTC Sunday',()=>{assert.equal(day(Date.parse('2026-10-25T16:01:00Z')),'2026-10-26');assert.equal(weekStart('2026-11-01'),'2026-10-26');assert.equal(weekStart('2026-11-02'),'2026-11-02');assert.throws(()=>midnight('2026-02-30'));});
+test('overnight time is split accurately for daily and payroll totals',()=>{const parts=splitDays(Date.parse('2026-10-30T23:30:00+08:00'),Date.parse('2026-10-31T01:00:00+08:00'));assert.deepEqual(parts,[{date:'2026-10-30',seconds:1800},{date:'2026-10-31',seconds:3600}]);});
+test('CSV escapes quoting and neutralizes formulas',()=>{assert.ok(csv([['=cmd','00012','a"b']]).includes('"\'=cmd","00012","a""b"'));});
+test('XLSX produces a ZIP package containing inline text IDs',()=>{const bytes=xlsx([{name:'Tasks',rows:[['VIDEO ID'],['00012']]}]);assert.equal(bytes[0],80);assert.equal(bytes[1],75);assert.ok(new TextDecoder().decode(bytes).includes('00012</t>'));});
