@@ -191,6 +191,25 @@ export async function handle(req: Request) {
             catch { /* durable outbox retries from Settings */ }
             return json({ saved: true, id: taskId, sync, warning: b.minutes ? await dailyWarning(u.id, midnight(b.date), midnight(addDays(b.date, 1))) : null });
         }
+        if (path === 'task-status' && method === 'POST') {
+            admin(u);
+            const b = z.object({ tasks: z.array(z.object({ id: uid, version: z.number().int().positive() })).min(1).max(100) }).parse(await req.json());
+            if (new Set(b.tasks.map(t => t.id)).size !== b.tasks.length) fail('Select each task only once.');
+            const statements: any[] = [];
+            for (const selected of b.tasks) {
+                const task = await one('SELECT * FROM task_entries WHERE id=?', selected.id);
+                if (!task) fail('A selected task no longer exists. Refresh before approving.', 404);
+                if (task.version !== selected.version) fail('A selected task changed. Refresh before approving.', 409);
+                if (!['PENDING', 'RETURNED'].includes(task.status)) fail('Select pending or returned tasks only.', 409);
+                await editableWeek(task.user_id, midnight(task.date));
+                const after = { ...task, status: 'APPROVED', version: task.version + 1, updated_at: now };
+                // The database version guard rejects a concurrent edit and rolls back the batch.
+                statements.push(stmt("UPDATE task_entries SET status='APPROVED',version=?,updated_at=? WHERE id=?", after.version, now, task.id), audit(u, 'task_entries', task.id, 'approved', task, after), queue(task.id));
+            }
+            await DB().batch(statements);
+            await safeSync(3);
+            return json({ saved: true, message: `${b.tasks.length} task${b.tasks.length === 1 ? '' : 's'} approved.` });
+        }
         if (path === 'task-hours' && method === 'POST') {
             admin(u);
             const b = z.object({ task_id: uid, signature: z.string().max(100000), action: z.enum(['approve', 'return']) }).parse(await req.json());
