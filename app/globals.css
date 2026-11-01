@@ -21,3 +21,5 @@
 .payroll-panel .payment-action{flex-direction:column;justify-content:center;text-align:center}.payment-action small{margin-inline:auto}.pay-dialog{position:fixed;inset:0;margin:auto;max-height:calc(100dvh - 32px)}.pay-dialog .modal-heading{position:relative;justify-content:center;text-align:center;padding-inline:56px}.pay-dialog .modal-heading>.icon-button{position:absolute;right:16px;top:16px}.pay-dialog .payment-review-total,.pay-dialog .modal-body>p{text-align:center}.pay-dialog .modal-footer{justify-content:center}.invoice-pdf-link{display:inline-block;margin-left:14px}
 
 .deleted-toggle{display:block;margin:12px 0;font-size:12px}.deleted-toggle input{width:auto;margin-right:7px;vertical-align:middle}.project-detail-foot{flex-wrap:wrap;gap:8px}.project-detail-foot>span:first-child{flex-basis:100%}
+
+.stats-grid.profit-stats{grid-template-columns:repeat(3,minmax(0,1fr))}@media(max-width:760px){.stats-grid.profit-stats{grid-template-columns:1fr}}

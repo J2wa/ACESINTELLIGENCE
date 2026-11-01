@@ -30,3 +30,6 @@ export const deletedTaskSync = sqliteTable('deleted_task_sync', { task_id: text(
 export const projectTimeTracking = sqliteTable('project_time_tracking', { project_id: text('project_id').primaryKey().references(() => projects.id), enabled: integer('enabled').notNull().default(0) });
 
 export const deletedRecords = sqliteTable('deleted_records', { entity:text('entity', {enum:['projects','users','invoices']}).notNull(), entity_id:text('entity_id').notNull(), deleted_at:integer('deleted_at').notNull(), deleted_by:text('deleted_by').notNull().references(()=>users.id), previous_state:text('previous_state').notNull() }, t=>[primaryKey({columns:[t.entity,t.entity_id]})]);
+
+export const projectClientRates = sqliteTable('project_client_rates', { project_id:text('project_id').primaryKey().references(()=>projects.id), rate_cents:integer('rate_cents') });
+export const workClientRates = sqliteTable('work_client_rates', { kind:text('kind',{enum:['task','time']}).notNull(), work_id:text('work_id').notNull(), rate_cents:integer('rate_cents') }, t=>[primaryKey({columns:[t.kind,t.work_id]})]);

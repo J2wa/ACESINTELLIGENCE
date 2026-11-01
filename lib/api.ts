@@ -1,3 +1,5 @@
+import { ensureProfitSchema } from './profit-schema.mjs';
+import { companyProfitRows } from './profit-core.mjs';
 import { ensureDeletionSchema, changeDeletion } from './admin-deletion';
 import { invoicePdf } from './invoice-pdf';
 import { getClient } from './database';
@@ -62,6 +64,11 @@ async function snapshot(u: any) {
     };
     const reviews = await all('SELECT r.* FROM task_hour_reviews r JOIN task_entries t ON t.id=r.task_id' + (u.role === 'ADMIN' ? '' : ' WHERE t.user_id=?'), ...args);
     result.tasks = result.tasks.map((t: any) => taskHours(t, result.times, reviews.find((r: any) => r.task_id === t.id), result.sheets));
+    if (u.role === 'ADMIN') {
+        const clientRates = await all('SELECT * FROM project_client_rates');
+        result.projects = result.projects.map((p:any)=>({...p,client_rate_cents:clientRates.find(r=>r.project_id===p.id)?.rate_cents ?? null}));
+        return { ...result, profit_rows:companyProfitRows(result,await all('SELECT * FROM work_client_rates')) };
+    }
     return result;
 }
 export async function handle(req: Request) {
@@ -77,7 +84,7 @@ export async function handle(req: Request) {
         }
         if (path === 'auth/me') {
             const u = await session(req);
-            if (u) { await ensurePayrollSchema(); await ensureLogSchema(); await ensureTimerSchema(getClient()); await ensureDeletionSchema(); }
+            if (u) { await ensurePayrollSchema(); await ensureLogSchema(); await ensureTimerSchema(getClient()); await ensureDeletionSchema(); await ensureProfitSchema(getClient()); }
             return json({ user: u, setup: !await one('SELECT id FROM users LIMIT 1'), owner_setup: false, google_configured: !!config('GOOGLE_CLIENT_ID'), google_only: config('GOOGLE_ONLY') === 'true' });
         }
         if (path === 'auth/setup' && method === 'POST') {
@@ -148,7 +155,7 @@ export async function handle(req: Request) {
         if (!u)
             fail('Your session has expired. Please sign in.', 401);
         await ensurePayrollSchema();
-        await ensureLogSchema(); await ensureTimerSchema(getClient()); await ensureDeletionSchema();
+        await ensureLogSchema(); await ensureTimerSchema(getClient()); await ensureDeletionSchema(); await ensureProfitSchema(getClient());
         if (path === 'admin/deletion' && method === 'POST') {
             admin(u);
             const b = z.object({ entity:z.enum(['projects','users','invoices']), id:uid, action:z.enum(['delete','restore']) }).parse(await req.json());
@@ -471,13 +478,14 @@ export async function handle(req: Request) {
         }
         if (path === 'projects' && method === 'POST') {
             admin(u);
-            const b = z.object({ id: uid.optional(), time_tracking_enabled: z.number().int().min(0).max(1).optional(), name, description: z.string().max(3000).default(''), status: z.enum(['active', 'archived']), pay_basis: z.enum(['TASK','VIDEO_HOUR','WORKING_HOUR']).default('WORKING_HOUR'), spreadsheet_id: z.string().regex(/^[a-zA-Z0-9_-]*$/).max(200).default(''), hourly_target: z.number().int().min(0).max(10000).nullable(), rate_cents: z.number().int().min(0).max(10000000), color: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#647c45'), employee_ids: z.array(uid) }).parse(await req.json());
+            const b = z.object({ id: uid.optional(), time_tracking_enabled: z.number().int().min(0).max(1).optional(), name, description: z.string().max(3000).default(''), status: z.enum(['active', 'archived']), pay_basis: z.enum(['TASK','VIDEO_HOUR','WORKING_HOUR']).default('WORKING_HOUR'), spreadsheet_id: z.string().regex(/^[a-zA-Z0-9_-]*$/).max(200).default(''), hourly_target: z.number().int().min(0).max(10000).nullable(), rate_cents: z.number().int().min(0).max(10000000), client_rate_cents:z.number().int().min(0).max(10000000).nullable().optional(), color: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#647c45'), employee_ids: z.array(uid) }).parse(await req.json());
             const eid = b.id ?? id(), old = await one('SELECT p.*,COALESCE(s.enabled,0) AS time_tracking_enabled FROM projects p LEFT JOIN project_time_tracking s ON s.project_id=p.id WHERE p.id=?', eid);
             if (b.id && await one("SELECT 1 FROM deleted_records WHERE entity='projects' AND entity_id=?", b.id)) fail('Restore this deleted record before editing it.',409);
             if (b.id && !old)
                 fail('Project not found.', 404);
             const timeTracking = b.time_tracking_enabled ?? old?.time_tracking_enabled ?? 0;
             const ss = [stmt('INSERT INTO projects(id,name,description,status,hourly_target,rate_cents,color,pay_basis,spreadsheet_id) VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,description=excluded.description,status=excluded.status,hourly_target=excluded.hourly_target,rate_cents=excluded.rate_cents,color=excluded.color,pay_basis=excluded.pay_basis,spreadsheet_id=excluded.spreadsheet_id', eid, b.name, b.description, b.status, b.hourly_target, b.rate_cents, b.color, b.pay_basis, b.spreadsheet_id), stmt('DELETE FROM project_assignments WHERE project_id=?', eid), ...b.employee_ids.map(w => stmt('INSERT INTO project_assignments(project_id,user_id) VALUES(?,?)', eid, w)), stmt('INSERT INTO project_time_tracking(project_id,enabled) VALUES(?,?) ON CONFLICT(project_id) DO UPDATE SET enabled=excluded.enabled', eid, timeTracking), audit(u, 'projects', eid, old ? 'updated' : 'created', old, { ...b, time_tracking_enabled: timeTracking })];
+            if (b.client_rate_cents !== undefined) ss.push(stmt('INSERT INTO project_client_rates(project_id,rate_cents) VALUES(?,?) ON CONFLICT(project_id) DO UPDATE SET rate_cents=excluded.rate_cents',eid,b.client_rate_cents));
             ss.push(stmt("INSERT INTO sync_jobs(task_id,status,updated_at) SELECT id,'pending',? FROM task_entries WHERE project_id=? ON CONFLICT(task_id) DO UPDATE SET status='pending',updated_at=excluded.updated_at", now, eid));
             await DB().batch(ss);
             await safeSync(3);

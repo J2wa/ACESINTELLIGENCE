@@ -43,6 +43,13 @@
       "when": 1793505000000,
       "tag": "0005_admin_deletion",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1793506000000,
+      "tag": "0006_company_profit",
+      "breakpoints": true
     }
   ]
 }

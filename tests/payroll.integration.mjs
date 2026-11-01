@@ -11,21 +11,21 @@ async function req(path,body,cookie='',status=200){const r=await handle(new Requ
 const cookie=r=>r.headers.get('set-cookie').split(';')[0];
 try{
 // Start with the prior deployed schema; the authenticated request must add payment tables safely.
-for(const f of readdirSync('drizzle').filter(f=>f.endsWith('.sql')&&!f.startsWith('0002')&&!f.startsWith('0005')).sort())for(const sql of readFileSync('drizzle/'+f,'utf8').split('--> statement-breakpoint').map(s=>s.trim()).filter(Boolean))await db.prepare(sql).run();
+for(const f of readdirSync('drizzle').filter(f=>f.endsWith('.sql')&&!f.startsWith('0002')&&!f.startsWith('0005')&&!f.startsWith('0006')).sort())for(const sql of readFileSync('drizzle/'+f,'utf8').split('--> statement-breakpoint').map(s=>s.trim()).filter(Boolean))await db.prepare(sql).run();
 const admin=cookie((await req('auth/setup',{name:'Coordinator',email:'admin@example.com',password:randomBytes(24).toString('hex'),bootstrap_token:process.env.BOOTSTRAP_TOKEN})).r);
 await req('workspace',null,admin);assert(await db.prepare('SELECT version FROM payroll_schema_version WHERE version=1').first());
 const passA=randomBytes(24).toString('hex'),passB=randomBytes(24).toString('hex');
 await req('users',{name:'Alice',email:'alice@example.com',role:'EMPLOYEE',active:1,password:passA},admin);await req('users',{name:'Bob',email:'bob@example.com',role:'EMPLOYEE',active:1,password:passB},admin);
 let workspace=(await req('workspace',null,admin)).j;const alice=workspace.users.find(u=>u.email==='alice@example.com').id,bob=workspace.users.find(u=>u.email==='bob@example.com').id;
 const a=cookie((await req('auth/login',{email:'alice@example.com',password:passA})).r),b=cookie((await req('auth/login',{email:'bob@example.com',password:passB})).r);
-const project=(await req('projects',{name:'Hourly project',time_tracking_enabled:1,description:'',status:'active',hourly_target:40,rate_cents:6000,pay_basis:'WORKING_HOUR',color:'#2563eb',employee_ids:[alice,bob]},admin)).j.id;
+const project=(await req('projects',{name:'Hourly project',time_tracking_enabled:1,description:'',status:'active',hourly_target:40,rate_cents:6000,client_rate_cents:10000,pay_basis:'WORKING_HOUR',color:'#2563eb',employee_ids:[alice,bob]},admin)).j.id;
 await req('accounts',{project_id:project,name:'Hourly account',active:1,sheet_tab:'',employee_ids:[alice,bob]},admin);workspace=(await req('workspace',null,admin)).j;const account=workspace.accounts.find(x=>x.project_id===project).id;
 const taskBody={date:'2026-10-31',project_id:project,account_id:account,duration:'0:03:00',status:'PENDING',minutes:60,notes:'Original work'};
 const taskA=(await req('tasks',{...taskBody,video_id:'000-ALICE'},a)).j.id,taskB=(await req('tasks',{...taskBody,date:'2026-11-01',minutes:30,video_id:'000-BOB'},b)).j.id;
 const pending=(await req('tasks',{...taskBody,date:'2026-11-01',minutes:30,video_id:'UNAPPROVED'},a)).j.id;
 workspace=(await req('workspace',null,admin)).j;
 await req('task-hours/bulk',{tasks:[taskA,taskB].map(task_id=>({task_id,signature:workspace.tasks.find(t=>t.id===task_id).hours_signature}))},admin);
-const taskProject=(await req('projects',{name:'Task project',description:'',status:'active',hourly_target:40,rate_cents:12345,pay_basis:'TASK',color:'#2563eb',employee_ids:[alice,bob]},admin)).j.id;
+const taskProject=(await req('projects',{name:'Task project',description:'',status:'active',hourly_target:40,rate_cents:12345,client_rate_cents:20000,pay_basis:'TASK',color:'#2563eb',employee_ids:[alice,bob]},admin)).j.id;
 await req('accounts',{project_id:taskProject,name:'Task account',active:1,sheet_tab:'',employee_ids:[alice,bob]},admin);workspace=(await req('workspace',null,admin)).j;const taskAccount=workspace.accounts.find(x=>x.project_id===taskProject).id;
 const pieceBody={...taskBody,project_id:taskProject,account_id:taskAccount,date:'2026-11-01',minutes:0,video_id:'PAID-PIECE'};
 const piece=(await req('tasks',pieceBody,a)).j.id;await req('tasks',{...pieceBody,id:piece,version:1,status:'APPROVED'},admin);
@@ -131,5 +131,28 @@ await req('admin/deletion',deletion('users',bob,'restore'),admin);
 await req('auth/login',{email:'bob@example.com',password:passB});
 assert.deepEqual(earningsTotals((await req('workspace',null,admin)).j,'2026-11'),beforeEarnings);
 checks+=12;
+// Company profit is admin-only, based on captured rates rather than current project rates.
+const profitWorkspace=(await req('workspace',null,admin)).j;
+assert.equal(profitWorkspace.projects.find(p=>p.id===project).client_rate_cents,10000);
+const hourlyProfit=profitWorkspace.profit_rows.filter(r=>r.task_id===taskA);
+assert.equal(hourlyProfit.reduce((sum,r)=>sum+r.revenue_cents,0),10000);
+assert.equal(hourlyProfit.reduce((sum,r)=>sum+r.profit_cents,0),4000);
+const pieceProfit=profitWorkspace.profit_rows.find(r=>r.task_id===piece);
+assert.equal(pieceProfit.client_rate_cents,20000);assert.equal(pieceProfit.profit_cents,7655);
+const privateWorkspace=(await req('workspace',null,a)).j;
+assert(!('profit_rows' in privateWorkspace));assert(privateWorkspace.projects.every(p=>!('client_rate_cents' in p)));
+const updateProject={id:taskProject,name:'Task project',description:'',status:'active',hourly_target:40,rate_cents:12345,client_rate_cents:25000,pay_basis:'TASK',color:'#2563eb',employee_ids:[alice,bob]};
+await req('projects',updateProject,a,403);
+await req('projects',{...updateProject,client_rate_cents:-1},admin,400);
+await req('projects',updateProject,admin);
+assert.equal((await req('workspace',null,admin)).j.profit_rows.find(r=>r.task_id===piece).client_rate_cents,20000);
+const newPriced=(await req('tasks',{...pieceBody,video_id:'NEW-CLIENT-RATE'},a)).j.id;
+assert.equal((await db.prepare("SELECT rate_cents FROM work_client_rates WHERE kind='task' AND work_id=?").bind(newPriced).first()).rate_cents,25000);
+await req('projects',{...updateProject,client_rate_cents:0},admin);
+const freePriced=(await req('tasks',{...pieceBody,video_id:'ZERO-CLIENT-RATE'},a)).j.id;
+assert.equal((await db.prepare("SELECT rate_cents FROM work_client_rates WHERE kind='task' AND work_id=?").bind(freePriced).first()).rate_cents,0);
+await req('tasks/delete',{id:freePriced,version:1},admin);
+assert.equal(await db.prepare("SELECT rate_cents FROM work_client_rates WHERE kind='task' AND work_id=?").bind(freePriced).first(),null);
+checks+=9;
 console.log(`PASS: ${checks} payment API checks covering additive migration, previews, stale data, atomic rollback, idempotency, paid locks, invoice privacy, CSV, immutable history, and lifetime/monthly earnings.`);
 }finally{Date.now=originalNow;getClient().close();rmSync(dir,{recursive:true,force:true});}

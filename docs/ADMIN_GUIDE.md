@@ -47,3 +47,11 @@ Administrators can select **Delete** on project cards, employee rows in Team, an
 Deleting an employee disables sign-in and revokes their sessions. Only employee accounts can be deleted; administrator accounts are protected. Deleting a project archives it and prevents new work. Stop any running timers first. Restore returns the previous active/inactive or project status.
 
 Deleting an invoice hides it from the normal invoice list. It does not void a payment, reduce paid totals, release paid-work locks, or make the work payable again. Its original details and exports remain available.
+
+## Client rates and company profit
+
+When creating or editing a project, enter **Employee rate** and **Client rate** in PHP. Both use the project’s pay basis: per task, per video hour, or per working hour. The form shows the difference per unit; rates below employee pay correctly show a loss. Existing employee rates remain unchanged.
+
+The admin-only **Company profit** dashboard shows client revenue, employee pay, and gross profit for approved or paid work, with date, project, employee, account, and status filters. Revenue means the value of approved work, not client cash received. Profit excludes other business costs. Both totals use the same priced work, and paid work is counted once.
+
+Rates are captured when tasks or time entries are created. Linked hours use the task’s captured client rate. Project rate edits affect future work, not historical profit. Old entries without captured client rates are marked unpriced and excluded from both revenue and cost totals in this dashboard. They remain fully included in employee payroll. A zero client rate is valid and is not treated as missing. Client rates and profit data are not sent in employee workspace responses or the shared Sheets tracker.
