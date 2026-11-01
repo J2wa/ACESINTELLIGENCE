@@ -39,3 +39,11 @@ Disabling time tracking blocks new timer sessions, including direct API requests
 With the service account configured, an administrator’s open Workhub automatically processes queued rows in small batches, waiting 10 seconds between successful batches. It checks for new work every 30 seconds when caught up. Failed requests retry with increasing delays, up to five minutes. Settings shows current progress and a **Sync now** button for an immediate retry.
 
 Keep Workhub open and signed in to drain a large queue. Closing the browser or session expiry stops the continuous worker; reopening and signing in resumes it. Background polling does not extend the 30-minute idle session. Individual saves still attempt immediate sync as before.
+
+## Delete and restore records
+
+Administrators can select **Delete** on project cards, employee rows in Team, and invoices in Payroll. A confirmation explains the effect. Enable **Show deleted** to see deleted records and use **Restore**. These actions are audited and preserve all linked tasks, hours, assignments, and payment history.
+
+Deleting an employee disables sign-in and revokes their sessions. Only employee accounts can be deleted; administrator accounts are protected. Deleting a project archives it and prevents new work. Stop any running timers first. Restore returns the previous active/inactive or project status.
+
+Deleting an invoice hides it from the normal invoice list. It does not void a payment, reduce paid totals, release paid-work locks, or make the work payable again. Its original details and exports remain available.

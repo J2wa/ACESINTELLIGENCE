@@ -11,7 +11,7 @@ async function req(path,body,cookie='',status=200){const r=await handle(new Requ
 const cookie=r=>r.headers.get('set-cookie').split(';')[0];
 try{
 // Start with the prior deployed schema; the authenticated request must add payment tables safely.
-for(const f of readdirSync('drizzle').filter(f=>f.endsWith('.sql')&&!f.startsWith('0002')).sort())for(const sql of readFileSync('drizzle/'+f,'utf8').split('--> statement-breakpoint').map(s=>s.trim()).filter(Boolean))await db.prepare(sql).run();
+for(const f of readdirSync('drizzle').filter(f=>f.endsWith('.sql')&&!f.startsWith('0002')&&!f.startsWith('0005')).sort())for(const sql of readFileSync('drizzle/'+f,'utf8').split('--> statement-breakpoint').map(s=>s.trim()).filter(Boolean))await db.prepare(sql).run();
 const admin=cookie((await req('auth/setup',{name:'Coordinator',email:'admin@example.com',password:randomBytes(24).toString('hex'),bootstrap_token:process.env.BOOTSTRAP_TOKEN})).r);
 await req('workspace',null,admin);assert(await db.prepare('SELECT version FROM payroll_schema_version WHERE version=1').first());
 const passA=randomBytes(24).toString('hex'),passB=randomBytes(24).toString('hex');
@@ -85,5 +85,51 @@ const concurrentFilters={...filters,project:taskProject};
 const concurrentPreview=(await req('payroll/preview',{filters:concurrentFilters},admin)).j;
 const sendPayment=()=>handle(new Request(origin+'/api/payroll/pay',{method:'POST',headers:{Origin:origin,'Content-Type':'application/json',Cookie:admin},body:JSON.stringify({filters:concurrentFilters,signature:concurrentPreview.signature,request_id:randomUUID(),reference:'Concurrent check',notes:''})}));
 const concurrent=await Promise.all([sendPayment(),sendPayment()]);assert.deepEqual(concurrent.map(response=>response.status).sort(),[200,409]);assert.equal((await db.prepare('SELECT COUNT(*) count FROM payment_invoices').first()).count,3);checks+=2;
+// Recoverable admin deletion preserves references, payroll, and locks.
+const deletion = (entity,id,action='delete') => ({entity,id,action});
+const beforeDeletion=(await req('workspace',null,admin)).j;
+const beforeEarnings=earningsTotals(beforeDeletion,'2026-11');
+await req('admin/deletion',deletion('invoices',aliceInvoice.id),'',401);
+await req('admin/deletion',deletion('invoices',aliceInvoice.id),a,403);
+await req('admin/deletion',deletion('users',beforeDeletion.user.id),admin,409);
+await req('admin/deletion',deletion('projects','missing'),admin,404);
+await req('admin/deletion',deletion('invoices',aliceInvoice.id),admin);
+await req('admin/deletion',deletion('invoices',aliceInvoice.id),admin);
+let deletedSnapshot=(await req('workspace',null,admin)).j;
+assert(deletedSnapshot.invoices.find(i=>i.id===aliceInvoice.id).deleted_at);
+assert.deepEqual(earningsTotals(deletedSnapshot,'2026-11'),beforeEarnings);
+assert.equal(deletedSnapshot.tasks.find(t=>t.id===taskA).paid_invoice_id,aliceInvoice.id);
+assert.equal((await db.prepare("SELECT COUNT(*) count FROM audit_log WHERE entity_id=? AND action='deleted'").bind(aliceInvoice.id).first()).count,1);
+await req('tasks/delete',{id:taskA,version:2},admin,409);
+await req('admin/deletion',deletion('invoices',aliceInvoice.id,'restore'),admin);
+await req('admin/deletion',deletion('projects',taskProject),admin);
+deletedSnapshot=(await req('workspace',null,admin)).j;
+assert(deletedSnapshot.projects.find(p=>p.id===taskProject).deleted_at);
+assert.equal(deletedSnapshot.projects.find(p=>p.id===taskProject).status,'archived');
+await req('tasks',{...pieceBody,video_id:'DELETED-PROJECT'},a,400);
+await assert.rejects(db.prepare("UPDATE projects SET status='active' WHERE id=?").bind(taskProject).run(),/Restore the deleted project/);
+await req('admin/deletion',deletion('projects',taskProject,'restore'),admin);
+assert.equal((await db.prepare('SELECT status FROM projects WHERE id=?').bind(taskProject).first()).status,'active');
+// Active timers block deletion, avoiding orphaned running sessions.
+await req('timer',{action:'start',project_id:project},b);
+await req('admin/deletion',deletion('projects',project),admin,409);
+await req('admin/deletion',deletion('users',bob),admin,409);
+await req('timer',{action:'stop'},b);
+// Audit failure must roll back both visibility and access changes.
+await db.prepare("CREATE TRIGGER deletion_audit_failure BEFORE INSERT ON audit_log WHEN NEW.action='deleted' BEGIN SELECT RAISE(ABORT,'test_delete_failure'); END").run();
+await req('admin/deletion',deletion('users',bob),admin,500);
+assert.equal((await db.prepare('SELECT active FROM users WHERE id=?').bind(bob).first()).active,1);
+assert.equal(await db.prepare("SELECT 1 FROM deleted_records WHERE entity='users' AND entity_id=?").bind(bob).first(),null);
+await db.prepare('DROP TRIGGER deletion_audit_failure').run();
+await req('admin/deletion',deletion('users',bob),admin);
+await req('workspace',null,b,401);
+await req('auth/login',{email:'bob@example.com',password:passB},'',401);
+await req('users',{id:bob,name:'Bob',email:'bob@example.com',role:'EMPLOYEE',active:1},admin,409);
+await assert.rejects(db.prepare('UPDATE users SET active=1 WHERE id=?').bind(bob).run(),/Restore the deleted employee/);
+assert.equal((await db.prepare('SELECT COUNT(*) count FROM task_entries WHERE user_id=?').bind(bob).first()).count,beforeDeletion.tasks.filter(t=>t.user_id===bob).length);
+await req('admin/deletion',deletion('users',bob,'restore'),admin);
+await req('auth/login',{email:'bob@example.com',password:passB});
+assert.deepEqual(earningsTotals((await req('workspace',null,admin)).j,'2026-11'),beforeEarnings);
+checks+=12;
 console.log(`PASS: ${checks} payment API checks covering additive migration, previews, stale data, atomic rollback, idempotency, paid locks, invoice privacy, CSV, immutable history, and lifetime/monthly earnings.`);
 }finally{Date.now=originalNow;getClient().close();rmSync(dir,{recursive:true,force:true});}

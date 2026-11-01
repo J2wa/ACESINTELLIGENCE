@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, real, uniqueIndex, index } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, integer, real, uniqueIndex, index, primaryKey } from 'drizzle-orm/sqlite-core';
 export const users = sqliteTable('users', { id: text('id').primaryKey(), name: text('name').notNull(), email: text('email').notNull().unique(), password_hash: text('password_hash'), google_sub: text('google_sub').unique(), role: text('role').notNull().default('EMPLOYEE'), active: integer('active').notNull().default(1), created_at: integer('created_at').notNull() });
 export const projects = sqliteTable('projects', { pay_basis: text('pay_basis').notNull().default('WORKING_HOUR'), spreadsheet_id: text('spreadsheet_id').notNull().default(''), id: text('id').primaryKey(), name: text('name').notNull(), description: text('description').notNull().default(''), status: text('status').notNull().default('active'), hourly_target: integer('hourly_target'), rate_cents: integer('rate_cents').notNull().default(0), color: text('color').notNull().default('#647c45') });
 export const projectAssignments = sqliteTable('project_assignments', { project_id: text('project_id').notNull().references(() => projects.id), user_id: text('user_id').notNull().references(() => users.id) }, t => [uniqueIndex('project_member').on(t.project_id, t.user_id)]);
@@ -28,3 +28,5 @@ export const payrollSchemaVersion = sqliteTable('payroll_schema_version', { vers
 export const deletedTaskSync = sqliteTable('deleted_task_sync', { task_id: text('task_id').primaryKey(), spreadsheet_id: text('spreadsheet_id').notNull(), sheet_tab: text('sheet_tab').notNull(), updated_at: integer('updated_at').notNull(), last_error: text('last_error') });
 
 export const projectTimeTracking = sqliteTable('project_time_tracking', { project_id: text('project_id').primaryKey().references(() => projects.id), enabled: integer('enabled').notNull().default(0) });
+
+export const deletedRecords = sqliteTable('deleted_records', { entity:text('entity', {enum:['projects','users','invoices']}).notNull(), entity_id:text('entity_id').notNull(), deleted_at:integer('deleted_at').notNull(), deleted_by:text('deleted_by').notNull().references(()=>users.id), previous_state:text('previous_state').notNull() }, t=>[primaryKey({columns:[t.entity,t.entity_id]})]);

@@ -1,3 +1,4 @@
+import { ensureDeletionSchema, changeDeletion } from './admin-deletion';
 import { invoicePdf } from './invoice-pdf';
 import { getClient } from './database';
 import { z } from 'zod';
@@ -20,7 +21,7 @@ const admin = (u: any) => { if (u.role !== 'ADMIN')
     fail('Administrator access required.', 403); };
 const safeSync = async (limit = 3, taskId?: string) => { try { return await syncTasks(limit, taskId); } catch { return { synced: 0, pending: true, message: 'Saved in Workhub. Spreadsheet sync is queued for retry.' }; } };
 const queue = (task: string) => stmt("INSERT INTO sync_jobs(task_id,status,updated_at) VALUES(?,'pending',?) ON CONFLICT(task_id) DO UPDATE SET status='pending',updated_at=excluded.updated_at", task, Date.now());
-async function assignment(u: any, project: string, account?: string) { const p = await one("SELECT p.*,COALESCE(s.enabled,0) AS time_tracking_enabled FROM projects p LEFT JOIN project_time_tracking s ON s.project_id=p.id WHERE p.id=? AND p.status='active'", project); if (!p)
+async function assignment(u: any, project: string, account?: string) { const p = await one("SELECT p.*,(SELECT deleted_at FROM deleted_records WHERE entity=\'projects\' AND entity_id=p.id) AS deleted_at,COALESCE(s.enabled,0) AS time_tracking_enabled FROM projects p LEFT JOIN project_time_tracking s ON s.project_id=p.id WHERE p.id=? AND p.status='active'", project); if (!p)
     fail('Choose an active project.'); if (u.role !== 'ADMIN' && !await one('SELECT 1 FROM project_assignments WHERE project_id=? AND user_id=?', project, u.id))
     fail('You are not assigned to this project.', 403); if (account) {
     if (!await one('SELECT 1 FROM accounts WHERE id=? AND project_id=? AND active=1', account, project))
@@ -50,13 +51,13 @@ async function dailyWarning(user: string, start: number, end: number) { for (con
 async function snapshot(u: any) {
     const where = u.role === 'ADMIN' ? '' : ' WHERE t.user_id=?', args = u.role === 'ADMIN' ? [] : [u.id];
     const result = {
-        user: u, users: await all('SELECT id,name,email,role,active FROM users' + (u.role === 'ADMIN' ? '' : ' WHERE id=?'), ...args),
-        projects: await all('SELECT p.*,COALESCE(s.enabled,0) AS time_tracking_enabled FROM projects p LEFT JOIN project_time_tracking s ON s.project_id=p.id' + (u.role === 'ADMIN' ? '' : ' WHERE p.id IN (SELECT project_id FROM project_assignments WHERE user_id=?)'), ...args),
+        user: u, users: await all('SELECT id,name,email,role,active,(SELECT deleted_at FROM deleted_records WHERE entity=\'users\' AND entity_id=users.id) AS deleted_at FROM users' + (u.role === 'ADMIN' ? '' : ' WHERE id=?'), ...args),
+        projects: await all('SELECT p.*,(SELECT deleted_at FROM deleted_records WHERE entity=\'projects\' AND entity_id=p.id) AS deleted_at,COALESCE(s.enabled,0) AS time_tracking_enabled FROM projects p LEFT JOIN project_time_tracking s ON s.project_id=p.id' + (u.role === 'ADMIN' ? '' : ' WHERE p.id IN (SELECT project_id FROM project_assignments WHERE user_id=?)'), ...args),
         accounts: await all('SELECT * FROM accounts' + (u.role === 'ADMIN' ? '' : ' WHERE id IN (SELECT account_id FROM account_assignments WHERE user_id=?)'), ...args),
         assignments: await all('SELECT * FROM project_assignments' + (u.role === 'ADMIN' ? '' : ' WHERE user_id=?'), ...args), account_assignments: await all('SELECT * FROM account_assignments' + (u.role === 'ADMIN' ? '' : ' WHERE user_id=?'), ...args),
         tasks: await all('SELECT t.*,(SELECT invoice_id FROM payment_tasks WHERE task_id=t.id) AS paid_invoice_id,(SELECT COALESCE(SUM((end_ms-start_ms)/1000),0) FROM time_entries WHERE task_id=t.id AND end_ms IS NOT NULL) AS spent_seconds FROM task_entries t' + where + ' ORDER BY date DESC,created_at DESC', ...args),
         times: await all('SELECT t.*,(SELECT invoice_id FROM payment_times WHERE time_entry_id=t.id) AS paid_invoice_id FROM time_entries t' + where + ' ORDER BY start_ms DESC', ...args), sheets: await all('SELECT t.* FROM timesheets t' + where + ' ORDER BY week_start DESC', ...args),
-        invoices: await all('SELECT t.* FROM payment_invoices t' + where + ' ORDER BY paid_at DESC,number DESC', ...args), invoice_items: await all('SELECT t.* FROM payment_invoice_items t' + where, ...args),
+        invoices: await all('SELECT t.*,(SELECT deleted_at FROM deleted_records WHERE entity=\'invoices\' AND entity_id=t.id) AS deleted_at FROM payment_invoices t' + where + ' ORDER BY paid_at DESC,number DESC', ...args), invoice_items: await all('SELECT t.* FROM payment_invoice_items t' + where, ...args),
         sync: u.role === 'ADMIN' ? await all("SELECT task_id,status,last_error,updated_at FROM sync_jobs UNION ALL SELECT task_id,CASE WHEN last_error IS NULL THEN 'pending' ELSE 'error' END,last_error,updated_at FROM deleted_task_sync") : [], settings: u.role === 'ADMIN' ? { spreadsheet_id: (await one("SELECT value FROM settings WHERE key='spreadsheet_id'"))?.value ?? '', google_configured: !!config('GOOGLE_CLIENT_ID'), sheets_configured: !!config('GOOGLE_SERVICE_ACCOUNT_JSON'), google_only: config('GOOGLE_ONLY') === 'true' } : {}
     };
     const reviews = await all('SELECT r.* FROM task_hour_reviews r JOIN task_entries t ON t.id=r.task_id' + (u.role === 'ADMIN' ? '' : ' WHERE t.user_id=?'), ...args);
@@ -76,7 +77,7 @@ export async function handle(req: Request) {
         }
         if (path === 'auth/me') {
             const u = await session(req);
-            if (u) { await ensurePayrollSchema(); await ensureLogSchema(); await ensureTimerSchema(getClient()); }
+            if (u) { await ensurePayrollSchema(); await ensureLogSchema(); await ensureTimerSchema(getClient()); await ensureDeletionSchema(); }
             return json({ user: u, setup: !await one('SELECT id FROM users LIMIT 1'), owner_setup: false, google_configured: !!config('GOOGLE_CLIENT_ID'), google_only: config('GOOGLE_ONLY') === 'true' });
         }
         if (path === 'auth/setup' && method === 'POST') {
@@ -147,7 +148,12 @@ export async function handle(req: Request) {
         if (!u)
             fail('Your session has expired. Please sign in.', 401);
         await ensurePayrollSchema();
-        await ensureLogSchema(); await ensureTimerSchema(getClient());
+        await ensureLogSchema(); await ensureTimerSchema(getClient()); await ensureDeletionSchema();
+        if (path === 'admin/deletion' && method === 'POST') {
+            admin(u);
+            const b = z.object({ entity:z.enum(['projects','users','invoices']), id:uid, action:z.enum(['delete','restore']) }).parse(await req.json());
+            return json(await changeDeletion(u,b.entity,b.id,b.action));
+        }
         if (path === 'auth/logout' && method === 'POST') {
             await stmt('DELETE FROM sessions WHERE token_hash=?', await sha(cookie(req, 'aces_session'))).run();
             return new Response('{}', { headers: { 'Set-Cookie': setCookie(req, 'aces_session', '', 0) } });
@@ -467,6 +473,7 @@ export async function handle(req: Request) {
             admin(u);
             const b = z.object({ id: uid.optional(), time_tracking_enabled: z.number().int().min(0).max(1).optional(), name, description: z.string().max(3000).default(''), status: z.enum(['active', 'archived']), pay_basis: z.enum(['TASK','VIDEO_HOUR','WORKING_HOUR']).default('WORKING_HOUR'), spreadsheet_id: z.string().regex(/^[a-zA-Z0-9_-]*$/).max(200).default(''), hourly_target: z.number().int().min(0).max(10000).nullable(), rate_cents: z.number().int().min(0).max(10000000), color: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#647c45'), employee_ids: z.array(uid) }).parse(await req.json());
             const eid = b.id ?? id(), old = await one('SELECT p.*,COALESCE(s.enabled,0) AS time_tracking_enabled FROM projects p LEFT JOIN project_time_tracking s ON s.project_id=p.id WHERE p.id=?', eid);
+            if (b.id && await one("SELECT 1 FROM deleted_records WHERE entity='projects' AND entity_id=?", b.id)) fail('Restore this deleted record before editing it.',409);
             if (b.id && !old)
                 fail('Project not found.', 404);
             const timeTracking = b.time_tracking_enabled ?? old?.time_tracking_enabled ?? 0;
@@ -495,6 +502,7 @@ export async function handle(req: Request) {
             admin(u);
             const b = z.object({ id: uid.optional(), name, email, role: z.enum(['ADMIN', 'EMPLOYEE']), active: z.number().int().min(0).max(1), password: z.string().optional() }).parse(await req.json());
             const eid = b.id ?? id(), old = await one('SELECT id,name,email,role,active FROM users WHERE id=?', eid);
+            if (b.id && await one("SELECT 1 FROM deleted_records WHERE entity='users' AND entity_id=?", b.id)) fail('Restore this deleted record before editing it.',409);
             if (b.id && !old)
                 fail('Employee not found.', 404);
             if (eid === u.id && (b.role !== 'ADMIN' || !b.active))
