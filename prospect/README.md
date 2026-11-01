@@ -1,3 +1,11 @@
+# Current sign-in (November 2, 2026)
+
+Open `/workspace.html` and sign in with a username and password. Founder username: `founder`. Team usernames: `employee` (VA1 permissions), `va1`, `va2`, `ai1`, `ai2`. Passwords are configured as salted scrypt hashes in Vercel; plaintext passwords are not committed. Signed HttpOnly/Secure cookies expire after eight hours and survive refresh. Logout clears the cookie. All API requests resolve the role from the configured username list. Legacy bearer credentials are rejected when username login is configured.
+
+`PROSPECT_USERS_JSON` maps allowed usernames to roles. The shared employee password cannot authenticate the founder username. Login attempts are limited per IP over 15-minute windows using Turso. Research uses the same browser session and still requires the user's Gemini API key. Shared passwords/account names mean activity identifies the account used, not necessarily an individual employee.
+
+The older setup notes below are historical; username login supersedes token-entry instructions.
+
 # ACES Prospect AI — audited team workflow
 
 Source: J2wa/ACESINTELLIGENCE, branch `audit/plan-alignment`, directory `prospect`. Vercel framework Other, output `public`, build `npm run build`, Node 24. This audit is prepared on a preview; production rollout waits for the shared CRM decision.

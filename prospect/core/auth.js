@@ -1,6 +1,8 @@
+import {sessionUser} from './login.js';
 import {createHash,timingSafeEqual} from 'node:crypto';
 export const ROLES=['founder','va1','va2','ai1','ai2'];
 export function authenticate(headers,config=process.env.PROSPECT_SEATS_JSON){
+ const session=sessionUser(headers);if(session)return session;if(process.env.PROSPECT_USERS_JSON)throw Error('Sign in with your username and password.');
  if(!config)throw Error('Team access is not configured.');let seats;try{seats=JSON.parse(config)}catch{throw Error('Team configuration invalid')};
  const token=String(headers.authorization||'').replace(/^Bearer /,'');if(token.length<24||token.length>256)throw Error('Invalid workspace token.');const hash=createHash('sha256').update(token).digest('hex');
  const seat=seats.find(s=>ROLES.includes(s.role)&&typeof s.tokenHash==='string'&&s.tokenHash.length===64&&timingSafeEqual(Buffer.from(s.tokenHash),Buffer.from(hash))&&!s.disabled);
