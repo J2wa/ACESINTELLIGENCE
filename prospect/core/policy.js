@@ -1,0 +1,59 @@
+// Business rules: no network side effects. All times are UTC instants.
+export const STAGES=['Target','Verified','Contacted','Engaged','Qualifying','Booked','Held'];
+export const OWNERS=['ai1','ai1','va1','va1','va2','va2','founder'];
+export const LABELS=['Positive','Question','Objection','Not now','Wrong person','Unsubscribe'];
+export const WEIGHTS={A:[20,20,25,20,10,5],B:[15,20,20,30,10,5]};
+export const DEFAULTS={timezone:'Asia/Manila',workStart:9,workEnd:18,allowedCountries:['United States','Australia','Philippines'],programStart:'2026-11-02',senderName:'ACES Intelligence',senderEmail:'',contactAddress:'',sendingDomain:'',mailboxStarted:'',dnsVerified:false,coverMode:false,approvedClaims:[]};
+export const known=v=>typeof v==='string'&&v.trim()!==''&&v.trim().toLowerCase()!=='unknown';
+export const line=v=>String(v??'unknown').replace(/[\r\n]+/g,' ').trim().slice(0,500)||'unknown';
+export const web=v=>{try{let u=new URL(v);return ['https:','http:'].includes(u.protocol)&&!u.username&&!u.password?u.href:''}catch{return ''}};
+export const domain=v=>{try{return new URL(v).hostname.toLowerCase().replace(/^www\./,'')}catch{return ''}};
+export const age=(date,now)=> (new Date(now)-new Date(date))/86400000;
+export function scoreLead(l,now=new Date().toISOString()){
+ const w=WEIGHTS[l.track]||WEIGHTS.A;
+ const dated=web(l.triggerSource)&&known(l.triggerDate)&&age(l.triggerDate,now)>=0&&age(l.triggerDate,now)<=90;
+ const checks=[l.signals?.companyType===true,l.signals?.buyerTitle===true,!!dated&&known(l.triggerEvent),l.signals?.clearNeed===true,l.emailVerification==='verified'&&l.linkedinActive===true,l.signals?.aiProduct===true];
+ const disqualified=Array.isArray(l.disqualifiers)&&l.disqualifiers.length>0;
+ const breakdown=Object.fromEntries(['companyType','buyerTitle','recentTrigger','clearNeed','verifiedContact','aiProduct'].map((k,i)=>[k,disqualified?0:checks[i]?w[i]:0]));
+ const score=Object.values(breakdown).reduce((a,b)=>a+b,0);return {score,breakdown,disqualified,workable:score>=60&&!disqualified,hot:score>=80&&!disqualified};
+}
+export function suppressed(state,l){const email=String(l.email||'').trim().toLowerCase(),host=domain(l.website);return l.doNotContact||state.suppressions.some(s=>(s.email&&s.email===email)||(s.domain&&s.domain===host)||s.leadId===l.id)}
+export function brief(l){return [line(l.companyDescription||`${l.company}: ${l.companyType}`),line(`${l.triggerEvent} (${l.triggerDate}; ${l.triggerSource})`),line(`${l.projectNeed}; ACES ${l.track==='A'?'AI data and expert services':'custom AI agents'} fit: ${l.fitReason}`)].join('\n')}
+export function qualify(l,now){const b=l.bant||{};return known(b.project)&&known(b.authority)&&(known(b.budget)||b.paidPilot===true)&&known(b.startDate)&&age(b.startDate,now)<=0&&age(b.startDate,now)>=-90}
+export function regionAllowed(l,c){return c.allowedCountries.some(x=>x.toLowerCase()===String(l.country).toLowerCase())}
+export function stageErrors(l,next,state,now){
+ const errors=[];const n=STAGES.indexOf(next),old=STAGES.indexOf(l.stage);
+ if(n<0||n!==old+1)errors.push('Advance exactly one stage at a time.');
+ if(suppressed(state,l)||l.archived)errors.push('Lead is suppressed or archived.');
+ if(!regionAllowed(l,state.config))errors.push('Country is not in the approved market list.');
+ if(!scoreLead(l,now).workable)errors.push('Lead must score 60+ and have no disqualifiers.');
+ if(n>=1){if(!known(l.contactName)||!known(l.contactTitle)||!known(l.email)||l.emailVerification!=='verified'||!known(l.emailVerificationEvidence))errors.push('Verified decision-maker and email verification evidence required.');if(!/^https:\/\/(www\.)?linkedin\.com\/(in|company)\//.test(l.linkedinUrl)||!l.linkedinConfirmed)errors.push('Confirmed LinkedIn URL required.');if(!known(l.triggerSource)||!web(l.triggerSource)||!known(l.triggerDate)||!Number.isFinite(Date.parse(l.triggerDate)))errors.push('Dated trigger source required. Unknown leads remain Target.');if(l.personalizationBrief?.split('\n').length!==3)errors.push('Exactly three personalization lines required.');}
+ if(n>=2&&!state.events.some(e=>e.type==='manual-contact'&&e.leadId===l.id))errors.push('Approved first touch and manual-send record required.');
+ if(n>=3&&!state.events.some(e=>['reply','engagement'].includes(e.type)&&e.leadId===l.id))errors.push('Engagement evidence required.');
+ if(n>=4&&!qualify(l,now))errors.push('BANT-lite project, authority, budget/paid pilot and start within 90 days required.');
+ if(n>=5&&(!web(l.calendarUrl)||!known(l.callAt)||!known(l.founderBriefSharedAt)))errors.push('Calendar link, call time and founder brief handoff required.');
+ if(n>=6&&(!known(l.callCompletedAt)||!['proposal','nurture','lost'].includes(l.outcome)))errors.push('Completed call and proposal/nurture/lost outcome required.');
+ return errors;
+}
+export function lintClaims(text,approved=[]){
+ let s=String(text);for(const fact of approved.filter(known))s=s.split(fact).join('');
+ const rules=[[/[$€£₱]|\b(?:USD|PHP|EUR|GBP)\b|\b(?:price|cost|rate)s?\s*(?:is|are|of|:|starts|from)\b/i,'Unapproved price'],[/\b(?:within|in|under)\s+\d+\s*(?:hours?|days?|weeks?)|\b(?:turnaround|same.day delivery)\b/i,'Unapproved turnaround'],[/\b\d+[+]?\s*(?:experts?|annotators?|employees?|people|specialists?|reviewers?)\b/i,'Unapproved team size'],[/\d+(?:\.\d+)?\s*%|\b(?:perfect accuracy|guaranteed accuracy)\b/i,'Unapproved performance'],[/\b(?:certified|certification|ISO\s*\d*|SOC\s*2|HIPAA.compliant|GDPR.compliant)\b/i,'Unapproved certification'],[/\b(?:clients? include|trusted by|worked with|customers? include|partner(?:ed)? with|we serve)\b/i,'Unapproved customer claim'],[/ignore (?:all |previous )?instructions|system prompt|reveal .*key/i,'Instruction injection']];
+ return rules.filter(([r])=>r.test(s)).map(([,m])=>m);
+}
+export function draftErrors(d,state){let e=lintClaims(d.body,state.config.approvedClaims);if(d.channel==='Email'){if(d.body.trim().split(/\s+/).length>=100)e.push('Email must be under 100 words.');if(!d.body.includes('To opt out, reply unsubscribe.'))e.push('Unsubscribe line missing.');if(!d.body.includes(state.config.senderName)||!state.config.senderEmail||!d.body.includes(state.config.senderEmail)||!state.config.contactAddress||!d.body.includes(state.config.contactAddress))e.push('Complete sender identity and contact address required.');}return e}
+export function sequence(l,state,now=new Date().toISOString()){
+ if(suppressed(state,l))throw Error('Suppressed leads cannot receive drafts.');
+ if(!scoreLead(l,now).workable)throw Error('Score must be 60+ before drafting.');
+ const offer=l.track==='A'?'Would a focused pilot with agreed scoring anchors be useful?':'Would a sample workflow for your team be useful?';
+ // Prospect text never becomes an assertion in our message without human review.
+ const intro=`I saw the public update linked in our research notes about ${line(l.company)}.`;
+ const footer=`${state.config.senderName}\n${state.config.senderEmail||'[sender email required]'} | ${state.config.contactAddress||'[contact address required]'}\nTo opt out, reply unsubscribe.`;
+ const email=t=>`${intro}\n${t}\n${offer}\n${footer}`;
+ const steps=[[1,'LinkedIn','Review profile and prepare a connection request. No pitch.'],[2,'Email',email(l.track==='A'?'ACES provides RLHF, model evaluation and multimodal annotation.':'ACES builds custom AI agents for repeatable workflows.')],[5,'LinkedIn',`Share one relevant point about ${l.track==='A'?'evaluation consistency':'workflow approvals'}. ${offer}`],[8,'Email',email('We define guidelines, use senior review and adjudicate disagreements.')],[12,'Email',email('We can discuss domain or language coverage relevant to your project.')],[16,'LinkedIn / call',`Warm leads only: prepare a brief voice note or call. ${offer}`],[21,'Email',email('If the timing is not right, we can revisit this later.')]];
+ return steps.map(([day,channel,body])=>({id:crypto.randomUUID(),leadId:l.id,day,channel,body,subject:`${l.track==='A'?'Evaluation support':'A sample workflow'} for ${line(l.company).slice(0,90)}`,approval:null,source:l.triggerSource,trigger:l.triggerEvent,requiresTriggerPersonalization:channel==='Email',scheduledAt:null,sentAt:null}));
+}
+export function triage(text){const t=String(text).toLowerCase();if(/unsubscribe|remove me|stop (?:emailing|contacting)|do not contact|don't contact|opt.?out/.test(t))return 'Unsubscribe';if(/wrong person|not my role|not responsible/.test(t))return 'Wrong person';if(/not now|later|next quarter|not right now/.test(t))return 'Not now';if(/already (?:have|use)|too expensive|not interested|no budget/.test(t))return 'Objection';if(/interested|book|schedule|let.s talk|sounds good/.test(t))return 'Positive';return 'Question'}
+export function replyDraft(text,label){if(!['Positive','Question','Objection'].includes(label))return '';if(/cost|price|pricing|security|secure|confidential|data handling/i.test(text))return 'The founder can cover pricing, scope, data handling and confidentiality on a short call. Would that be useful?';return label==='Positive'?'Thanks for your interest. What project or workflow are you considering, and when would you like to start?':label==='Objection'?'Understood. Would a focused pilot or sample workflow help you assess whether ACES fits your needs?':'Thanks for the question. Could you share the project or workflow you have in mind?'}
+function localParts(date,tz){const p=Object.fromEntries(new Intl.DateTimeFormat('en-US',{timeZone:tz,weekday:'short',hour:'2-digit',minute:'2-digit',hourCycle:'h23',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date(date)).map(x=>[x.type,x.value]));return p}
+export function workingDeadline(date,c,minutes=120){let t=new Date(date).getTime();if(!Number.isFinite(t))return null;let n=0;for(let i=0;i<60*24*14&&n<minutes;i++){const p=localParts(t,c.timezone);if(!['Sat','Sun'].includes(p.weekday)&&Number(p.hour)>=c.workStart&&Number(p.hour)<c.workEnd)n++;t+=60000;}return new Date(t).toISOString()}
+export function sendGuard(state,l,now){const c=state.config;const errors=[];if(!scoreLead(l,now).workable)errors.push('Score below 60 or disqualified');if(suppressed(state,l)||l.archived)errors.push('Suppressed or archived');if(!regionAllowed(l,c))errors.push('Excluded region');if(c.coverMode)errors.push('Cover mode: prioritize replies, pause new sends');if(!c.sendingDomain||c.sendingDomain.toLowerCase()==='acesintelligence.xyz'||c.sendingDomain.toLowerCase().endsWith('.acesintelligence.xyz'))errors.push('Separate sending domain required');if(!c.senderEmail.endsWith('@'+c.sendingDomain)||!c.contactAddress)errors.push('Sender identity incomplete');if(!c.dnsVerified)errors.push('SPF/DKIM/DMARC verification required');const days=age(c.mailboxStarted,now);if(!Number.isFinite(days)||days<14)errors.push('Two-week warm-up incomplete');const cap=days>=21?40:20;const today=localParts(now,c.timezone);const p=localParts(now,c.timezone);if(['Sat','Sun'].includes(p.weekday)||Number(p.hour)<c.workStart||Number(p.hour)>=c.workEnd)errors.push('Outside configured working window');const sends=state.events.filter(e=>e.type==='manual-contact'&&e.channel==='Email'&&e.mailbox===c.senderEmail);const daily=sends.filter(e=>{const d=localParts(e.at,c.timezone);return d.year+d.month+d.day===today.year+today.month+today.day});if(daily.length>=cap)errors.push('Daily mailbox cap reached');const period=sends.filter(e=>age(e.at,now)>=0&&age(e.at,now)<30);const events=state.events.filter(e=>age(e.at,now)>=0&&age(e.at,now)<30);const denom=period.length;if(denom){for(const [type,max] of [['bounce',.03],['complaint',.001],['unsubscribe',.01]])if(events.filter(e=>e.type===type&&e.mailbox===c.senderEmail).length/denom>=max)errors.push(`${type} health threshold reached`)}return {allowed:errors.length===0,errors,cap,daily:daily.length}}

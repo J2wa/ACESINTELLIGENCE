@@ -1,0 +1,12 @@
+{
+  "requirements": 62,
+  "baseline_nonimplemented_by_severity": {
+    "High": 38,
+    "Medium": 16,
+    "Blocker": 5
+  },
+  "after_status": {
+    "Implemented": 45,
+    "Partial": 17
+  }
+}
