@@ -1,14 +1,39 @@
-# ACES Prospect AI
-Gemini Google Search research, citation-constrained leads, review statuses, browser-local history, CSV export and outreach drafts. No messages are sent.
+# ACES Prospect AI — audited team workflow
 
-Vercel root: `prospect`. Framework: Other. Build: `npm run build`. Output: `public`. API: `api/research.js`. Node 22+. Production branch: `aces-prospect-ai`. Domain: leads.acesintelligence.xyz.
+Source: J2wa/ACESINTELLIGENCE, branch `audit/plan-alignment`, directory `prospect`. Vercel framework Other, output `public`, build `npm run build`, Node 24. This audit is prepared on a preview; production rollout waits for the shared CRM decision.
 
-Open API settings, enter a Gemini key, test connection, select an available Google Search grounding-capable model. The key remains in tab memory and travels only to this app's server and Google; never logged or stored. API billing applies. No shared server key is used. Refresh clears credentials.
+## Quick review (no keys or costs)
+Open `/workspace.html`, choose **Explore dry run**. Use synthetic fixtures only. Clock is fixed at November 2, 2026, 10:00 Manila. Switch simulated seats to check access gates. No emails, LinkedIn messages or paid API calls occur. Data resets on reload. `npm run test:dry-run` exercises ten fixture leads end to end.
 
-Leads/history persist ONLY in localStorage in this browser. Export regularly. This is not a shared CRM. No login, shared team storage, scheduled jobs, direct social scraping, Apollo enrichment or email verification. LinkedIn/Facebook discovery uses public search indexing. Source URLs and buying signals need human verification; citation allowlisting proves retrieval provenance, not truth.
+## Install and test
+```
+npm ci --ignore-scripts
+npm test
+npm run lint
+npm run build
+npm run test:dry-run
+```
+Tests include exact weights, recency, seven stage gates, BANT-lite, suppression, approval invalidation, six reply labels, working-hour SLA, deliverability, access checks, public LinkedIn adapter mocks, 40 mock prompt-contract checks, an in-memory libSQL migration/concurrency check, and a 35A/15B daily pipeline simulation. No live provider credentials are used. Syntax lint is not semantic ESLint.
 
-Two bounded Gemini calls: grounded discovery, then JSON extraction. No search citations means no saved leads. Unsupported citation URLs discarded. Domain deduplication and do-not-contact exclusions. Max 15 candidates/run, 50s provider timeout per call, 120s function timeout. No automatic retries. Search costs depend on model-generated query count.
+## Activate a shared workspace (founder decision required)
+1. Approve a separate Turso/libSQL database for prospect records. Existing Workhub uses libSQL, but this app must use its own credentials. Do not point it at Workhub without separate authorization. No production data has been migrated.
+2. Set `PROSPECT_DATABASE_URL` and `PROSPECT_DATABASE_TOKEN` in Vercel. After approval, run the additive migration with `PROSPECT_MIGRATION_APPROVED=yes npm run db:migrate`. Rollback is an app/config rollback; preserve the new table and records, never drop data.
+3. Configure `PROSPECT_SEATS_JSON` as an array of objects with id, role (founder/va1/va2/ai1/ai2), tokenHash (SHA256 of a random 32+ character token), disabled (false). Generate and distribute tokens privately; do not paste them into issues or source. Hashes only go in server configuration. Disabling a seat takes effect on the next request.
+4. Founder sets country allowlist, Manila work window, a separate sending domain, sender address/contact, DNS attestation and mailbox start date. Defaults exclude Canada and EU markets. This does not certify legal compliance or verify DNS automatically.
+5. Populate `config/fact_sheet.yaml` with exact approved claims. The empty template approves none. Provide the do-not-contact list before import. UI suppression is append-only; email/domain match applies across tracks.
+6. Existing browser records are retained, not silently deleted or migrated. Export them from the old page and explicitly review/import them into the shared CRM. New research requires seat authentication and saves server-side. Research key remains in tab memory.
 
-Checks: `npm test` and `npm run build`. Tests cover key checks, origin checks, citation filtering, deduplication, unsafe links and mocked provider flow. Live API behavior requires a real key. Connection test lists models but does not guarantee grounding quota.
+## LinkedIn change
+The old blanket scraping ban is replaced by an optional **public business data** adapter in `core/linkedin.js`. Choose an Apify Actor that explicitly accepts `startUrls: [{url}], maxItems, publicOnly`; verify its real input schema and output shape before activation. No actor is selected automatically. Set `APIFY_LINKEDIN_ACTOR_ID`, `APIFY_TOKEN`, and only after approval `PROSPECT_LIVE_PROVIDERS=true`. POST `/api/linkedin` with a research/founder bearer token: action `validate` checks 1–15 public URLs; `start` additionally requires `confirmPaidRun:true`; `status` reads the run. No private profiles, account cookies, logins, access bypasses or automated outreach. Adapter contract is mock-tested, not a verified live scrape. https://docs.apify.com/api/v2/actor-runs
 
-API documentation: https://ai.google.dev/gemini-api/docs/generate-content/google-search
+## Daily operations
+- AI1/research seat imports cited candidates, checks verification evidence and advances only eligible contacts. Scores below 60 stay Candidate; 80+ gets founder/custom-message review. Unknown evidence cannot be promoted.
+- VA1 edits seven-touch drafts, inserts the actual verified trigger in the first email line, approves each draft, schedules a human task, then records the external human action. No send connector exists. Approval is invalidated when the message or lead changes.
+- VA2 opens Replies first, handles positive replies before the two-working-hour deadline, captures BANT-lite and records calendar/handoff evidence. Generate the founder call brief from the lead.
+- Founder reviews hot leads daily; on Wednesday inspect sampled sent/draft messages and record feedback; on Friday generate the funnel report. Empty metrics are not fabricated.
+- Daily/weekly buttons run idempotent maintenance. `core/orchestrator.js` supports injected providers and is tested at 35A/15B, but no unattended live scheduler is activated. Missing verifier, inbox/calendar integrations and recovery infrastructure are listed in the audit matrix.
+
+## Security and storage limits
+Shared CRM stores one versioned JSON state record with optimistic concurrency; suitable for initial team testing, not an unbounded high-volume CRM. Per-seat role checks are server-side. Tokens/AI keys remain in tab memory. Browser demo is stateless and accepts synthetic fixture names only. Existing localStorage records remain for explicit migration. No deletion endpoint, no real send endpoint. External requests have timeouts and no automatic paid retries. API quotas, distributed abuse controls and live monitoring still need production hardening.
+
+See `docs/audit/05-final-report.md`, the requirement matrix and recorded test output for verified behavior and remaining gaps.
