@@ -248,6 +248,24 @@ await req('admin/project-archive',{action:'empty',ids:[archiveId],confirmation:'
 for(const table of ['projects','task_entries','accounts']) assert.equal(await db.prepare(`SELECT id FROM ${table} WHERE id=?`).bind(table==='projects'?archiveId:table==='accounts'?archiveAccount:archiveTask).first(),null);
 assert(await db.prepare("SELECT id FROM audit_log WHERE entity_id=? AND action='permanently_deleted'").bind(archiveId).first());
 assert.equal((await getClient().execute('PRAGMA foreign_key_check')).rows.length,0);
+// Project workspace links: admin-controlled, validated, visible only to assigned employees.
+const linkSettings={name:'Workspace links QA',description:'',status:'active',hourly_target:null,rate_cents:1000,pay_basis:'TASK',color:'#2563eb',employee_ids:[employeeId],work_enabled:1,work_url:'https://work.example.com/tasks',assistant_enabled:1,assistant_url:'https://assistant.example.com/'};
+await req('projects',linkSettings,employee,403);
+await req('projects',{...linkSettings,work_url:'javascript:alert(1)'},admin,400);
+await req('projects',{...linkSettings,assistant_url:'https://user:password@example.com/'},admin,400);
+await req('projects',{...linkSettings,work_url:''},admin,400);
+const linkProject=(await req('projects',linkSettings,admin)).j.id;
+let linkRow=(await req('workspace',null,employee)).j.projects.find(p=>p.id===linkProject);
+assert.equal(linkRow.work_enabled,1);assert.equal(linkRow.work_url,linkSettings.work_url);assert.equal(linkRow.assistant_enabled,1);
+await req('projects',{...linkSettings,id:linkProject,work_enabled:0,assistant_enabled:0},admin);
+linkRow=(await req('workspace',null,employee)).j.projects.find(p=>p.id===linkProject);assert.equal(linkRow.work_enabled,0);assert.equal(linkRow.assistant_enabled,0);
+await req('projects',{...linkSettings,id:linkProject,employee_ids:[]},admin);
+assert(!(await req('workspace',null,employee)).j.projects.some(p=>p.id===linkProject));
+process.env.GOOGLE_ONLY='true';
+await req('auth/login',{email:'employee@example.com',password:employeePass});
+assert.equal((await req('auth/me')).j.google_configured,false);
+await req('auth/google',null,'',404);await req('auth/google/callback',null,'',404);
+delete process.env.GOOGLE_ONLY;
 await req('auth/password',{current_password:employeePass,password:randomBytes(24).toString('hex')},employee);await req('workspace',null,employee,401);
 // Environment bootstrap creates only missing accounts; sign-out revokes the server session.
 const {hashPassword}=await import('../lib/auth.ts');

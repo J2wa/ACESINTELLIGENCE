@@ -33,3 +33,5 @@ export const deletedRecords = sqliteTable('deleted_records', { entity:text('enti
 
 export const projectClientRates = sqliteTable('project_client_rates', { project_id:text('project_id').primaryKey().references(()=>projects.id), rate_cents:integer('rate_cents') });
 export const workClientRates = sqliteTable('work_client_rates', { kind:text('kind',{enum:['task','time']}).notNull(), work_id:text('work_id').notNull(), rate_cents:integer('rate_cents') }, t=>[primaryKey({columns:[t.kind,t.work_id]})]);
+
+export const projectLinks = sqliteTable('project_links', { project_id:text('project_id').primaryKey().references(()=>projects.id,{onDelete:'cascade'}),work_enabled:integer('work_enabled').notNull().default(0),work_url:text('work_url').notNull().default(''),assistant_enabled:integer('assistant_enabled').notNull().default(0),assistant_url:text('assistant_url').notNull().default('') });

@@ -1,0 +1,1 @@
+CREATE TABLE IF NOT EXISTS project_links (project_id TEXT PRIMARY KEY REFERENCES projects(id) ON DELETE CASCADE, work_enabled INTEGER NOT NULL DEFAULT 0 CHECK(work_enabled IN (0,1)), work_url TEXT NOT NULL DEFAULT '', assistant_enabled INTEGER NOT NULL DEFAULT 0 CHECK(assistant_enabled IN (0,1)), assistant_url TEXT NOT NULL DEFAULT '');

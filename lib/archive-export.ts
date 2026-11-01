@@ -28,6 +28,7 @@ export async function archiveSnapshot(tx:Transaction, ids:string[]) {
         const times=await rows('SELECT * FROM time_entries WHERE project_id=? ORDER BY id');
         if (times.some(t=>t.end_ms===null)) fail('Stop running project timers before exporting for deletion.',409);
         result.push({project,
+            project_links:await rows('SELECT * FROM project_links WHERE project_id=?'),
             tasks:await rows('SELECT * FROM task_entries WHERE project_id=? ORDER BY id'),times,
             accounts:await rows('SELECT * FROM accounts WHERE project_id=? ORDER BY id'),
             assignments:await rows('SELECT * FROM project_assignments WHERE project_id=? ORDER BY user_id'),

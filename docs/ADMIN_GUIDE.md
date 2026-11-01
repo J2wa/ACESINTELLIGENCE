@@ -1,7 +1,7 @@
 # Administrator guide
 
-1. Sign in with the administrator email and password configured by your operator, or use Google after OAuth is configured. The operator initializes your account through server environment secrets.
-2. In **Team**, add employees using the exact email they will use to sign in. Assign a private initial password, or leave it blank when Google sign-in is configured. No invitation email is sent. Use a secure channel to share initial credentials; employees can change their own password in Settings.
+1. Sign in with the administrator email and password configured by your operator. The operator initializes your account through server environment secrets.
+2. In **Team**, add employees using the exact email they will use to sign in. Assign a private initial password. No invitation email is sent. Use a secure channel to share initial credentials; employees can change their own password in Settings.
 3. In **Projects**, create the project, hourly rate in PHP, optional weekly team-hour target, and assigned employees. Add work accounts for that project, then assign the relevant employees. Every project needs at least one work account; use a General account if the project has no named tracker tabs.
 4. Admins can log tasks for any active employee using the Annotator selector, including in Mass upload. The selected employee owns the task and any working minutes; the admin remains the audit actor. Open a task to set APPROVED or RETURNED; add useful feedback in Notes. Use the duplicate warning's **Open existing entry** action instead of creating another row. Another employee's entry is visible to coordinators only.
 5. In **Timesheets**, choose an employee and week. Review their daily/project totals. Approve a submitted week, or send it back with a required comment. Return an approved week before correcting it. A stopped timer is required for submission; submitted weeks lock task edits as well as time edits.
@@ -66,3 +66,6 @@ In Projects, use Archive project to close it to new work. Project archive includ
 Administrators can include paid work and submitted/approved timesheet entries. The server requires an export receipt bound to the administrator and exact records, expiring after 15 minutes and usable once. Changes after export require a new PDF. Running timers must still be stopped. Affected locked timesheets are returned for review; remaining work is retained. Payment invoices and invoice line snapshots stay immutable and available for historical totals and PDF downloads. Audit events remain, and linked spreadsheet rows are queued for removal. Deletion and receipt consumption are atomic: failures leave everything unchanged.
 
 Team and invoice Delete actions use styled confirmation dialogs and remain recoverable through Show deleted. No export is needed for those visibility changes.
+
+## Employee project shortcuts
+In Projects → Manage, enable **Show Start working button** and/or **Show AI assistant button**, then enter each full HTTPS or HTTP URL. Each button is independently optional. Only assigned employees see these shortcuts for active projects in Overview; links open a new tab and do not start the timer. Sign-in uses email and password only. Google Sheets sync remains available.
