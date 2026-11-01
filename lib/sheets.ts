@@ -17,6 +17,8 @@ async function accessToken() {
 }
 export async function syncTasks(limit = 1, taskId?: string) {
     await ensureLogSchema();
+    if (!await one("SELECT task_id FROM sync_jobs WHERE status!='synced' UNION ALL SELECT task_id FROM deleted_task_sync LIMIT 1"))
+        return { synced: 0, pending: false, message: 'All caught up. Watching for new entries.' };
     const setting = await one("SELECT value FROM settings WHERE key='spreadsheet_id'");
     if (!setting?.value && !await one("SELECT id FROM projects WHERE spreadsheet_id!='' LIMIT 1") && !await one("SELECT task_id FROM deleted_task_sync LIMIT 1"))
         return { synced: 0, pending: true, message: 'Configure a project or workspace spreadsheet.' };
@@ -53,7 +55,7 @@ export async function syncTasks(limit = 1, taskId?: string) {
                 await stmt('UPDATE deleted_task_sync SET last_error=? WHERE task_id=?', (error as Error).message, job.task_id).run();
             }
         }
-        const jobs = await all("SELECT j.*,t.date,t.video_id,t.duration_seconds,t.status AS task_status,t.notes,u.name AS annotator,p.name AS project,p.spreadsheet_id,a.name AS account,a.sheet_tab,t.user_id,t.project_id,t.account_id,t.pay_basis,t.rate_cents,t.updated_at AS task_updated_at,(SELECT COALESCE(SUM((end_ms-start_ms)/1000),0) FROM time_entries WHERE task_id=t.id AND end_ms IS NOT NULL) AS spent FROM sync_jobs j JOIN task_entries t ON t.id=j.task_id JOIN users u ON u.id=t.user_id JOIN projects p ON p.id=t.project_id JOIN accounts a ON a.id=t.account_id WHERE j.status!='synced' AND (? IS NULL OR j.task_id=?) ORDER BY j.updated_at LIMIT ?", taskId ?? null, taskId ?? null, limit);
+        const jobs = await all("SELECT j.*,t.date,t.video_id,t.duration_seconds,t.status AS task_status,t.notes,u.name AS annotator,p.name AS project,p.spreadsheet_id,a.name AS account,a.sheet_tab,t.user_id,t.project_id,t.account_id,t.pay_basis,t.rate_cents,t.updated_at AS task_updated_at,(SELECT COALESCE(SUM((end_ms-start_ms)/1000),0) FROM time_entries WHERE task_id=t.id AND end_ms IS NOT NULL) AS spent FROM sync_jobs j JOIN task_entries t ON t.id=j.task_id JOIN users u ON u.id=t.user_id JOIN projects p ON p.id=t.project_id JOIN accounts a ON a.id=t.account_id WHERE j.status!='synced' AND (? IS NULL OR j.task_id=?) ORDER BY CASE WHEN j.status='pending' THEN 0 ELSE 1 END,j.attempts,j.updated_at LIMIT ?", taskId ?? null, taskId ?? null, limit);
         for (const j of jobs) {
             try {
                 const spreadsheet = j.spreadsheet_id || setting?.value;

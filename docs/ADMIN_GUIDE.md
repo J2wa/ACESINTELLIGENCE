@@ -24,7 +24,7 @@ Lifetime and monthly earnings include paid amounts plus unpaid approved earnings
 
 ## Delete logs and choose task fields
 
-Admins can delete any employee's unpaid task or time log using the trash button. Employees can delete only their own logs. Task deletion also removes linked working time, hour reviews, and queued tracker writes in one transaction, with audit history preserved. Google Sheets row removal uses the stable entry ID and retries from Settings → Sync pending. Paid logs remain locked; submitted/approved weeks must be returned first, and running timers must be stopped.
+Admins can delete any employee's unpaid task or time log using the trash button. Employees can delete only their own logs. Task deletion also removes linked working time, hour reviews, and queued tracker writes in one transaction, with audit history preserved. Google Sheets row removal uses the stable entry ID and retries automatically while an administrator has Workhub open. Paid logs remain locked; submitted/approved weeks must be returned first, and running timers must be stopped.
 
 Task forms and bulk columns follow **Per task**, **Per video hour**, or **Per working hour**. Project cards display this pay basis instead of guessing an annotation type from the project name. Existing task editors use the task's captured pay basis even if the project basis has since changed.
 
@@ -33,3 +33,9 @@ Task forms and bulk columns follow **Per task**, **Per video hour**, or **Per wo
 Open **Projects → Manage → Time tracking**, check **Enable time tracking**, then save. Only administrators can change this setting. Existing and new projects start disabled until explicitly enabled. The timer project selector includes only active projects with time tracking enabled, and employees still need a project assignment.
 
 Disabling time tracking blocks new timer sessions, including direct API requests. A running session can still be stopped and saved. The setting applies to the work timer; task logging and manual working-time entry keep their existing permissions. Changes appear in workspace audit history.
+
+## Continuous Google Sheets sync
+
+With the service account configured, an administrator’s open Workhub automatically processes queued rows in small batches, waiting 10 seconds between successful batches. It checks for new work every 30 seconds when caught up. Failed requests retry with increasing delays, up to five minutes. Settings shows current progress and a **Sync now** button for an immediate retry.
+
+Keep Workhub open and signed in to drain a large queue. Closing the browser or session expiry stops the continuous worker; reopening and signing in resumes it. Background polling does not extend the 30-minute idle session. Individual saves still attempt immediate sync as before.

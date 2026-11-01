@@ -143,7 +143,7 @@ export async function handle(req: Request) {
             response.headers.set('Location', '/');
             return new Response(null, { status: 302, headers: response.headers });
         }
-        const u = await session(req);
+        const u = await session(req, path !== 'sync');
         if (!u)
             fail('Your session has expired. Please sign in.', 401);
         await ensurePayrollSchema();
@@ -527,7 +527,9 @@ export async function handle(req: Request) {
         }
         if (path === 'sync' && method === 'POST') {
             admin(u);
-            return json(await safeSync(3));
+            const result = await safeSync(3);
+            const sync = await all("SELECT task_id,status,last_error,updated_at FROM sync_jobs UNION ALL SELECT task_id,CASE WHEN last_error IS NULL THEN 'pending' ELSE 'error' END,last_error,updated_at FROM deleted_task_sync");
+            return json({ ...result, sync });
         }
         if (path === 'export' && method === 'GET') {
             const data = await snapshot(u), q = new URL(req.url).searchParams, from = q.get('from') || '1970-01-01', to = q.get('to') || '2100-01-01', kind = q.get('kind') || 'tasks';
