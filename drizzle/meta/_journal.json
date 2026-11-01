@@ -50,6 +50,13 @@
       "when": 1793506000000,
       "tag": "0006_company_profit",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1793547000000,
+      "tag": "0007_archive_export",
+      "breakpoints": true
     }
   ]
 }

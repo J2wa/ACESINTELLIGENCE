@@ -11,7 +11,7 @@ async function req(path,body,cookie='',status=200){const r=await handle(new Requ
 const cookie=r=>r.headers.get('set-cookie').split(';')[0];
 try{
 // Start with the prior deployed schema; the authenticated request must add payment tables safely.
-for(const f of readdirSync('drizzle').filter(f=>f.endsWith('.sql')&&!f.startsWith('0002')&&!f.startsWith('0005')&&!f.startsWith('0006')).sort())for(const sql of readFileSync('drizzle/'+f,'utf8').split('--> statement-breakpoint').map(s=>s.trim()).filter(Boolean))await db.prepare(sql).run();
+for(const f of readdirSync('drizzle').filter(f=>f.endsWith('.sql')&&!f.startsWith('0002')&&!f.startsWith('0005')&&!f.startsWith('0006')&&!f.startsWith('0007')).sort())for(const sql of readFileSync('drizzle/'+f,'utf8').split('--> statement-breakpoint').map(s=>s.trim()).filter(Boolean))await db.prepare(sql).run();
 const admin=cookie((await req('auth/setup',{name:'Coordinator',email:'admin@example.com',password:randomBytes(24).toString('hex'),bootstrap_token:process.env.BOOTSTRAP_TOKEN})).r);
 await req('workspace',null,admin);assert(await db.prepare('SELECT version FROM payroll_schema_version WHERE version=1').first());
 const passA=randomBytes(24).toString('hex'),passB=randomBytes(24).toString('hex');
@@ -158,7 +158,41 @@ await req('admin/project-archive',{action:'archive',ids:[taskProject]},admin);
 await req('admin/project-archive',{action:'empty',ids:[taskProject],confirmation:'EMPTY ARCHIVE'},admin,409);
 assert(await db.prepare('SELECT id FROM projects WHERE id=?').bind(taskProject).first());
 assert(await db.prepare('SELECT id FROM task_entries WHERE id=?').bind(piece).first());
-await req('admin/project-archive',{action:'restore',ids:[taskProject]},admin);
+// PDF receipts are admin-only, expiring, single-use and bound to the exact database snapshot.
+await req('admin/project-archive/export',{ids:[taskProject]},a,403);
+await req('admin/project-archive/export',{ids:[taskProject]},'',401);
+let backup=await req('admin/project-archive/export',{ids:[taskProject]},admin);
+assert(backup.j.startsWith('%PDF-'));assert.equal(backup.r.headers.get('content-type'),'application/pdf');
+let receipt=backup.r.headers.get('X-Archive-Receipt');assert(receipt);
+await db.prepare("UPDATE projects SET description='Changed after export' WHERE id=?").bind(taskProject).run();
+await req('admin/project-archive',{action:'empty',ids:[taskProject],confirmation:'EMPTY ARCHIVE',receipt},admin,409);
+backup=await req('admin/project-archive/export',{ids:[taskProject]},admin);receipt=backup.r.headers.get('X-Archive-Receipt');
+await db.prepare('UPDATE archive_export_receipts SET expires_at=0').run();
+await req('admin/project-archive',{action:'empty',ids:[taskProject],confirmation:'EMPTY ARCHIVE',receipt},admin,409);
+// Simulate a locked week containing paid task work, including another project's retained records.
+await req('timesheets',{week_start:'2026-10-26',action:'submit'},a);
+await req('timesheets',{week_start:'2026-10-26',user_id:alice,action:'approve'},admin);
+backup=await req('admin/project-archive/export',{ids:[taskProject]},admin);receipt=backup.r.headers.get('X-Archive-Receipt');
+const purge={action:'empty',ids:[taskProject],confirmation:'EMPTY ARCHIVE',receipt};
+await db.prepare("CREATE TRIGGER archive_failure BEFORE DELETE ON projects BEGIN SELECT RAISE(ABORT,'test_archive_failure'); END").run();
+await req('admin/project-archive',purge,admin,500);
+assert(await db.prepare('SELECT task_id FROM payment_tasks WHERE task_id=?').bind(piece).first());
+assert.equal((await db.prepare('SELECT count(*) n FROM archive_purge_scope').first()).n,0);
+assert.equal((await db.prepare("SELECT status FROM timesheets WHERE user_id=? AND week_start='2026-10-26'").bind(alice).first()).status,'APPROVED');
+await db.prepare('DROP TRIGGER archive_failure').run();
+await req('admin/project-archive',purge,admin);
+assert.equal(await db.prepare('SELECT id FROM projects WHERE id=?').bind(taskProject).first(),null);
+assert.equal(await db.prepare('SELECT id FROM task_entries WHERE id=?').bind(piece).first(),null);
+assert.equal((await db.prepare("SELECT status FROM timesheets WHERE user_id=? AND week_start='2026-10-26'").bind(alice).first()).status,'RETURNED');
+assert.equal((await req('invoices/'+aliceInvoice.id,null,a)).j.total_cents,24345);
+assert((await req('invoices/'+aliceInvoice.id+'?format=pdf',null,a)).j.startsWith('%PDF-'));
+assert.equal((await db.prepare('SELECT count(*) n FROM archive_purge_scope').first()).n,0);
+assert.equal((await getClient().execute('PRAGMA foreign_key_check')).rows.length,0);
+await req('admin/project-archive',purge,admin,409);
+// Unrelated paid work and immutable invoices keep their original protections.
+await assert.rejects(db.prepare('DELETE FROM payment_tasks WHERE task_id=?').bind(taskA).run(),/invoice_immutable/);
+await assert.rejects(db.prepare('DELETE FROM payment_invoice_items').run(),/invoice_immutable/);
+await req('tasks/delete',{id:taskA,version:2},admin,409);
 checks+=9;
 console.log(`PASS: ${checks} payment API checks covering additive migration, previews, stale data, atomic rollback, idempotency, paid locks, invoice privacy, CSV, immutable history, and lifetime/monthly earnings.`);
 }finally{Date.now=originalNow;getClient().close();rmSync(dir,{recursive:true,force:true});}

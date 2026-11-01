@@ -1,3 +1,4 @@
+import { exportArchive } from './archive-export';
 import { ensureProfitSchema } from './profit-schema.mjs';
 import { companyProfitRows } from './profit-core.mjs';
 import { projectArchive } from './project-archive';
@@ -157,11 +158,17 @@ export async function handle(req: Request) {
             fail('Your session has expired. Please sign in.', 401);
         await ensurePayrollSchema();
         await ensureLogSchema(); await ensureTimerSchema(getClient()); await ensureDeletionSchema(); await ensureProfitSchema(getClient());
+        if (path === 'admin/project-archive/export' && method === 'POST') {
+            admin(u);
+            const b=z.object({ids:z.array(uid).min(1).max(1000)}).parse(await req.json());
+            const {pdf,receipt}=await exportArchive(u,b.ids);
+            return new Response(new Uint8Array(pdf),{headers:{'Content-Type':'application/pdf','Content-Disposition':'attachment; filename="workhub-archive-backup.pdf"','Cache-Control':'private, no-store','X-Archive-Receipt':receipt}});
+        }
         if (path === 'admin/project-archive' && method === 'POST') {
             admin(u);
-            const b = z.object({action:z.enum(['archive','restore','empty']),ids:z.array(uid).min(1).max(1000),confirmation:z.string().optional()}).parse(await req.json());
+            const b = z.object({action:z.enum(['archive','restore','empty']),ids:z.array(uid).min(1).max(1000),confirmation:z.string().optional(),receipt:z.string().max(128).optional()}).parse(await req.json());
             if (b.action === 'empty' && b.confirmation !== 'EMPTY ARCHIVE') fail('Type EMPTY ARCHIVE to confirm permanent deletion.',400);
-            return json(await projectArchive(u,b.action,b.ids));
+            return json(await projectArchive(u,b.action,b.ids,b.receipt));
         }
         if (path === 'admin/deletion' && method === 'POST') {
             admin(u);
