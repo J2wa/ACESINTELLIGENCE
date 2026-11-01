@@ -59,3 +59,6 @@ Rates are captured when tasks or time entries are created. Linked hours use the 
 ## Mobile navigation and appearance
 
 On phones and tablets, use **Menu** to open navigation and **Close menu** or the dimmed backdrop to dismiss it. Choosing a page closes the menu. Keyboard users can press Escape, and focus stays inside the open drawer. On desktop, **Hide sidebar** provides more workspace; the header menu button brings it back. Mobile page actions appear below the title, forms use a single column, and wide tables scroll inside their cards. The theme toggle switches between light mode and navy-blue dark mode.
+
+## Project archive
+In Projects, use Archive project to close it to new work. Project archive includes older archived/deleted projects. Restore project reopens it. Empty archive requires typing `EMPTY ARCHIVE` and permanently removes the displayed archived projects, their task/time records, accounts and assignments in one transaction. Audit events remain. New projects archived after the confirmation are not included. Running timers, paid invoices and submitted/approved timesheet locks block deletion; no partial deletion occurs. Return locked timesheets for correction first. Paid projects remain archived to preserve immutable invoices. Linked spreadsheet rows are queued for removal through the existing sync process.

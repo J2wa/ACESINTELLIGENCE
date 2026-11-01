@@ -1,5 +1,6 @@
 import { ensureProfitSchema } from './profit-schema.mjs';
 import { companyProfitRows } from './profit-core.mjs';
+import { projectArchive } from './project-archive';
 import { ensureDeletionSchema, changeDeletion } from './admin-deletion';
 import { invoicePdf } from './invoice-pdf';
 import { getClient } from './database';
@@ -156,6 +157,12 @@ export async function handle(req: Request) {
             fail('Your session has expired. Please sign in.', 401);
         await ensurePayrollSchema();
         await ensureLogSchema(); await ensureTimerSchema(getClient()); await ensureDeletionSchema(); await ensureProfitSchema(getClient());
+        if (path === 'admin/project-archive' && method === 'POST') {
+            admin(u);
+            const b = z.object({action:z.enum(['archive','restore','empty']),ids:z.array(uid).min(1).max(1000),confirmation:z.string().optional()}).parse(await req.json());
+            if (b.action === 'empty' && b.confirmation !== 'EMPTY ARCHIVE') fail('Type EMPTY ARCHIVE to confirm permanent deletion.',400);
+            return json(await projectArchive(u,b.action,b.ids));
+        }
         if (path === 'admin/deletion' && method === 'POST') {
             admin(u);
             const b = z.object({ entity:z.enum(['projects','users','invoices']), id:uid, action:z.enum(['delete','restore']) }).parse(await req.json());

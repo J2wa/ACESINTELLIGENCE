@@ -153,6 +153,12 @@ const freePriced=(await req('tasks',{...pieceBody,video_id:'ZERO-CLIENT-RATE'},a
 assert.equal((await db.prepare("SELECT rate_cents FROM work_client_rates WHERE kind='task' AND work_id=?").bind(freePriced).first()).rate_cents,0);
 await req('tasks/delete',{id:freePriced,version:1},admin);
 assert.equal(await db.prepare("SELECT rate_cents FROM work_client_rates WHERE kind='task' AND work_id=?").bind(freePriced).first(),null);
+// Empty archive must never bypass immutable invoice history.
+await req('admin/project-archive',{action:'archive',ids:[taskProject]},admin);
+await req('admin/project-archive',{action:'empty',ids:[taskProject],confirmation:'EMPTY ARCHIVE'},admin,409);
+assert(await db.prepare('SELECT id FROM projects WHERE id=?').bind(taskProject).first());
+assert(await db.prepare('SELECT id FROM task_entries WHERE id=?').bind(piece).first());
+await req('admin/project-archive',{action:'restore',ids:[taskProject]},admin);
 checks+=9;
 console.log(`PASS: ${checks} payment API checks covering additive migration, previews, stale data, atomic rollback, idempotency, paid locks, invoice privacy, CSV, immutable history, and lifetime/monthly earnings.`);
 }finally{Date.now=originalNow;getClient().close();rmSync(dir,{recursive:true,force:true});}

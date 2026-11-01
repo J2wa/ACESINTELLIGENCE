@@ -228,6 +228,26 @@ await req('timer',{action:'start',project_id:p,task_id:runningTask},employee);
 await req('tasks/delete',{id:runningTask,version:1},admin,409);
 await req('timer',{action:'stop'},employee);
 await req('tasks/delete',{id:runningTask,version:1},admin);
+// Project archive: role checks, explicit confirmation, stale selection and atomic deletion.
+const archiveSettings={name:'Archive QA',description:'',status:'active',hourly_target:null,rate_cents:1000,pay_basis:'TASK',color:'#2563eb',employee_ids:[employeeId]};
+const archiveId=(await req('projects',archiveSettings,admin)).j.id;
+await req('accounts',{project_id:archiveId,name:'Archive account',active:1,sheet_tab:'Archive',employee_ids:[employeeId]},admin);
+const archiveAccount=(await req('workspace',null,admin)).j.accounts.find(a=>a.project_id===archiveId).id;
+const archiveTask=(await req('tasks',{project_id:archiveId,account_id:archiveAccount,date:logDate,video_id:'ARCHIVE-0001',duration:'0:00:00',minutes:0,status:'PENDING',notes:''},employee)).j.id;
+await req('admin/project-archive',{action:'archive',ids:[archiveId]},employee,403);
+await req('admin/project-archive',{action:'archive',ids:[archiveId]},'',401);
+await req('admin/project-archive',{action:'empty',ids:[archiveId],confirmation:'EMPTY ARCHIVE'},admin,409);
+await req('admin/project-archive',{action:'archive',ids:[archiveId]},admin);
+assert.equal((await db.prepare('SELECT status FROM projects WHERE id=?').bind(archiveId).first()).status,'archived');
+await req('admin/project-archive',{action:'restore',ids:[archiveId]},admin);
+await req('admin/project-archive',{action:'archive',ids:[archiveId]},admin);
+await req('admin/project-archive',{action:'empty',ids:[archiveId]},admin,400);
+await req('admin/project-archive',{action:'empty',ids:[archiveId,p],confirmation:'EMPTY ARCHIVE'},admin,409);
+assert(await db.prepare('SELECT id FROM task_entries WHERE id=?').bind(archiveTask).first());
+await req('admin/project-archive',{action:'empty',ids:[archiveId],confirmation:'EMPTY ARCHIVE'},admin);
+for(const table of ['projects','task_entries','accounts']) assert.equal(await db.prepare(`SELECT id FROM ${table} WHERE id=?`).bind(table==='projects'?archiveId:table==='accounts'?archiveAccount:archiveTask).first(),null);
+assert(await db.prepare("SELECT id FROM audit_log WHERE entity_id=? AND action='permanently_deleted'").bind(archiveId).first());
+assert.equal((await getClient().execute('PRAGMA foreign_key_check')).rows.length,0);
 await req('auth/password',{current_password:employeePass,password:randomBytes(24).toString('hex')},employee);await req('workspace',null,employee,401);
 // Environment bootstrap creates only missing accounts; sign-out revokes the server session.
 const {hashPassword}=await import('../lib/auth.ts');

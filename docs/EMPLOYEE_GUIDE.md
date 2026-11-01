@@ -31,3 +31,6 @@ Once your coordinator records payment, included tasks and time entries show as p
 ## Work timer availability
 
 Your work timer is available only for assigned, active projects whose administrator enabled **Time tracking** in project settings. If none are enabled, **Start timer** is disabled with an explanation. A timer already running can still be stopped if the administrator disables that project.
+
+## Hide the floating timer
+Open the sidebar and check **Hide floating timer**. This browser remembers your choice. The timer keeps running; Start/Stop controls and elapsed time move to the sidebar. Uncheck it to show the floating panel again.
