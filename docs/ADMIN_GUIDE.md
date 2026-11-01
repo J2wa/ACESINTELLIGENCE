@@ -55,3 +55,7 @@ When creating or editing a project, enter **Employee rate** and **Client rate** 
 The admin-only **Company profit** dashboard shows client revenue, employee pay, and gross profit for approved or paid work, with date, project, employee, account, and status filters. Revenue means the value of approved work, not client cash received. Profit excludes other business costs. Both totals use the same priced work, and paid work is counted once.
 
 Rates are captured when tasks or time entries are created. Linked hours use the task’s captured client rate. Project rate edits affect future work, not historical profit. Old entries without captured client rates are marked unpriced and excluded from both revenue and cost totals in this dashboard. They remain fully included in employee payroll. A zero client rate is valid and is not treated as missing. Client rates and profit data are not sent in employee workspace responses or the shared Sheets tracker.
+
+## Mobile navigation and appearance
+
+On phones and tablets, use **Menu** to open navigation and **Close menu** or the dimmed backdrop to dismiss it. Choosing a page closes the menu. Keyboard users can press Escape, and focus stays inside the open drawer. On desktop, **Hide sidebar** provides more workspace; the header menu button brings it back. Mobile page actions appear below the title, forms use a single column, and wide tables scroll inside their cards. The theme toggle switches between light mode and navy-blue dark mode.
