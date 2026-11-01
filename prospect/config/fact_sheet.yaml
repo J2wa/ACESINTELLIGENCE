@@ -1,0 +1,4 @@
+{
+  "approvedClaims": [],
+  "note": "Founder supplies exact approved sentences for pricing, capacity, turnaround, customers, security and certifications. JSON is a YAML subset. Empty means none approved. Commit review is required for changes."
+}

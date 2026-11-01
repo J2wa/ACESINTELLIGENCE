@@ -1,1 +1,19 @@
-{"name":"aces-prospect-ai","version":"0.1.0","private":true,"type":"module","engines":{"node":">=22"},"scripts":{"build":"node --check api/research.js && node --check public/app.js","test":"node --test tests/*.test.js"}}
+{
+  "name": "aces-prospect-ai",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "node scripts/check.mjs",
+    "test": "node --test tests/*.test.js",
+    "lint": "node scripts/check.mjs",
+    "db:migrate": "node scripts/migrate.mjs",
+    "test:dry-run": "node scripts/dry-run.mjs"
+  },
+  "dependencies": {
+    "@libsql/client": "^0.18.0"
+  }
+}

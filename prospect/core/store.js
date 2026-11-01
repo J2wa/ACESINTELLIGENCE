@@ -1,0 +1,7 @@
+import {createClient} from '@libsql/client';
+import {initialState} from './crm.js';
+export const MIGRATION=`CREATE TABLE IF NOT EXISTS prospect_state (id INTEGER PRIMARY KEY CHECK (id = 1), revision INTEGER NOT NULL, body TEXT NOT NULL)`;
+export function connect(){const url=process.env.PROSPECT_DATABASE_URL;if(!url)throw Error('Shared CRM is not configured. Founder must approve and provision its database first.');if(process.env.VERCEL&&!/^libsql:\/\//.test(url))throw Error('Production requires a separate hosted libSQL database.');return createClient({url,authToken:process.env.PROSPECT_DATABASE_TOKEN})}
+export async function initialize(client){await client.execute(MIGRATION);await client.execute({sql:'INSERT OR IGNORE INTO prospect_state (id,revision,body) VALUES (1,0,?)',args:[JSON.stringify(initialState())]})}
+export async function read(client){const r=await client.execute('SELECT revision,body FROM prospect_state WHERE id=1');if(!r.rows[0])throw Error('CRM migration required');return {revision:Number(r.rows[0].revision),state:JSON.parse(r.rows[0].body)}}
+export async function write(client,revision,state){const r=await client.execute({sql:'UPDATE prospect_state SET revision=revision+1,body=? WHERE id=1 AND revision=?',args:[JSON.stringify(state),revision]});if(r.rowsAffected!==1)throw Error('Another seat updated the CRM. Reload and retry; no changes were overwritten.');return revision+1}
