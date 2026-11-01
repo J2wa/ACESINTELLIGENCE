@@ -37,3 +37,14 @@ The old blanket scraping ban is replaced by an optional **public business data**
 Shared CRM stores one versioned JSON state record with optimistic concurrency; suitable for initial team testing, not an unbounded high-volume CRM. Per-seat role checks are server-side. Tokens/AI keys remain in tab memory. Browser demo is stateless and accepts synthetic fixture names only. Existing localStorage records remain for explicit migration. No deletion endpoint, no real send endpoint. External requests have timeouts and no automatic paid retries. API quotas, distributed abuse controls and live monitoring still need production hardening.
 
 See `docs/audit/05-final-report.md`, the requirement matrix and recorded test output for verified behavior and remaining gaps.
+
+
+### Approved setup and provider controls (Nov 1 update)
+
+The founder approved the separate database and function changes. Provision a separate Turso/libSQL database and set `PROSPECT_DATABASE_URL`, `PROSPECT_DATABASE_TOKEN`, and `PROSPECT_SEATS_JSON` as encrypted Vercel variables. Do not reuse the Workhub database. Set `PROSPECT_MIGRATION_APPROVED=yes` during setup, enter a founder token on `/workspace.html`, and click **Initialize approved database**. The additive operation preserves existing CRM records and creates a provider-run ledger. Return the migration flag to `no` afterward. `/api/setup` reports configuration booleans only; it does not disclose credentials or prove database connectivity.
+
+The LinkedIn screen now supports explicit start, status/results, and reviewed JSON import. Configure a compatible Actor and provider token before enabling live providers. A durable request reservation prevents the same request ID from causing a second paid run, caps starts at five per hour across the workspace, and restricts results to the owner/founder. If a provider call times out, reconcile its outcome in Apify; do not create a fresh request to work around an unknown outcome. No live provider requests were used during implementation.
+
+Qualification uses labeled fields and signal checkboxes. Logged replies can reference a specific sent draft. **Export CRM backup** downloads the current state, including contact data: store it securely. This manual export is not automated disaster recovery.
+
+The connected Vercel toolset cannot create a Turso resource, and the browser provisioning dashboard requires sign-in. Database provisioning and live deployed verification remain pending account access. Automated coverage: 69 passing tests, including setup authorization, additive initialization, provider ownership, hourly cap and duplicate-request protection. Other previously recorded limitations remain in the audit gap plan.
