@@ -4,13 +4,13 @@ import { useState, useCallback } from 'react';
 import ActionDialog from './action-dialog';
 import { Trash2, RotateCcw } from 'lucide-react';
 export default function RecordDeletion({ entity, id, label, deleted, onReload, onNotice }: {
-    entity:'projects'|'users'|'invoices'; id:string; label:string; deleted:boolean;
+    entity:'projects'|'users'|'invoices'|'accounts'; id:string; label:string; deleted:boolean;
     onReload:()=>Promise<void>; onNotice:(message:string)=>void;
 }) {
     const [busy,setBusy] = useState(false), [error,setError] = useState('');
     const [open,setOpen] = useState(false);
     const close = useCallback(()=>setOpen(false),[]);
-    const explanation = entity === 'invoices' ? 'The payment stays recorded. Paid totals and locked work will not change.' : entity === 'users' ? 'This employee will lose access. Their work and payment history will remain.' : 'This project will be hidden and closed to new work. Existing logs and payments will remain.';
+    const explanation = entity === 'accounts' ? 'This work account will be hidden and unavailable for new tasks. Existing tasks, assignments, tracker links and payment history will remain. You can restore it later.' : entity === 'invoices' ? 'The payment stays recorded. Paid totals and locked work will not change.' : entity === 'users' ? 'This employee will lose access. Their work and payment history will remain.' : 'This project will be hidden and closed to new work. Existing logs and payments will remain.';
     async function change() {
         setBusy(true); setError('');
         try {

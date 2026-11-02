@@ -1,3 +1,4 @@
+import { ensureWorkAccountDeletion, changeWorkAccountDeletion } from './work-account-deletion';
 import { ensureProjectLinks, projectLinkFields, resolveProjectLinks } from './project-links';
 import { exportArchive } from './archive-export';
 import { ensureProfitSchema } from './profit-schema.mjs';
@@ -58,7 +59,7 @@ async function snapshot(u: any) {
     const result = {
         user: u, users: await all('SELECT id,name,email,role,active,(SELECT deleted_at FROM deleted_records WHERE entity=\'users\' AND entity_id=users.id) AS deleted_at FROM users' + (u.role === 'ADMIN' ? '' : ' WHERE id=?'), ...args),
         projects: await all('SELECT p.*,(SELECT deleted_at FROM deleted_records WHERE entity=\'projects\' AND entity_id=p.id) AS deleted_at,COALESCE(s.enabled,0) AS time_tracking_enabled,COALESCE(l.work_enabled,0) AS work_enabled,COALESCE(l.work_url,\'\') AS work_url,COALESCE(l.assistant_enabled,0) AS assistant_enabled,COALESCE(l.assistant_url,\'\') AS assistant_url FROM projects p LEFT JOIN project_time_tracking s ON s.project_id=p.id LEFT JOIN project_links l ON l.project_id=p.id' + (u.role === 'ADMIN' ? '' : ' WHERE p.id IN (SELECT project_id FROM project_assignments WHERE user_id=?)'), ...args),
-        accounts: await all('SELECT * FROM accounts' + (u.role === 'ADMIN' ? '' : ' WHERE id IN (SELECT account_id FROM account_assignments WHERE user_id=?)'), ...args),
+        accounts: await all('SELECT accounts.*,(SELECT deleted_at FROM deleted_work_accounts WHERE account_id=accounts.id) AS deleted_at FROM accounts' + (u.role === 'ADMIN' ? '' : ' WHERE id IN (SELECT account_id FROM account_assignments WHERE user_id=?)'), ...args),
         assignments: await all('SELECT * FROM project_assignments' + (u.role === 'ADMIN' ? '' : ' WHERE user_id=?'), ...args), account_assignments: await all('SELECT * FROM account_assignments' + (u.role === 'ADMIN' ? '' : ' WHERE user_id=?'), ...args),
         tasks: await all('SELECT t.*,(SELECT invoice_id FROM payment_tasks WHERE task_id=t.id) AS paid_invoice_id,(SELECT COALESCE(SUM((end_ms-start_ms)/1000),0) FROM time_entries WHERE task_id=t.id AND end_ms IS NOT NULL) AS spent_seconds FROM task_entries t' + where + ' ORDER BY date DESC,created_at DESC', ...args),
         times: await all('SELECT t.*,(SELECT invoice_id FROM payment_times WHERE time_entry_id=t.id) AS paid_invoice_id FROM time_entries t' + where + ' ORDER BY start_ms DESC', ...args), sheets: await all('SELECT t.* FROM timesheets t' + where + ' ORDER BY week_start DESC', ...args),
@@ -87,7 +88,7 @@ export async function handle(req: Request) {
         }
         if (path === 'auth/me') {
             const u = await session(req);
-            if (u) { await ensurePayrollSchema(); await ensureLogSchema(); await ensureTimerSchema(getClient()); await ensureDeletionSchema(); await ensureProfitSchema(getClient()); await ensureProjectLinks(); }
+            if (u) { await ensurePayrollSchema(); await ensureLogSchema(); await ensureTimerSchema(getClient()); await ensureDeletionSchema(); await ensureProfitSchema(getClient()); await ensureProjectLinks(); await ensureWorkAccountDeletion(); }
             return json({ user: u, setup: !await one('SELECT id FROM users LIMIT 1'), owner_setup: false, google_configured: false, google_only: false });
         }
         if (path === 'auth/google' || path === 'auth/google/callback') fail('Sign in using your email and password.',404);
@@ -158,7 +159,7 @@ export async function handle(req: Request) {
         if (!u)
             fail('Your session has expired. Please sign in.', 401);
         await ensurePayrollSchema();
-        await ensureLogSchema(); await ensureTimerSchema(getClient()); await ensureDeletionSchema(); await ensureProfitSchema(getClient()); await ensureProjectLinks();
+        await ensureLogSchema(); await ensureTimerSchema(getClient()); await ensureDeletionSchema(); await ensureProfitSchema(getClient()); await ensureProjectLinks(); await ensureWorkAccountDeletion();
         if (path === 'admin/project-archive/export' && method === 'POST') {
             admin(u);
             const b=z.object({ids:z.array(uid).min(1).max(1000)}).parse(await req.json());
@@ -173,8 +174,8 @@ export async function handle(req: Request) {
         }
         if (path === 'admin/deletion' && method === 'POST') {
             admin(u);
-            const b = z.object({ entity:z.enum(['projects','users','invoices']), id:uid, action:z.enum(['delete','restore']) }).parse(await req.json());
-            return json(await changeDeletion(u,b.entity,b.id,b.action));
+            const b = z.object({ entity:z.enum(['projects','users','invoices','accounts']), id:uid, action:z.enum(['delete','restore']) }).parse(await req.json());
+            return json(b.entity==='accounts' ? await changeWorkAccountDeletion(u,b.id,b.action) : await changeDeletion(u,b.entity,b.id,b.action));
         }
         if (path === 'auth/logout' && method === 'POST') {
             await stmt('DELETE FROM sessions WHERE token_hash=?', await sha(cookie(req, 'aces_session'))).run();
@@ -512,6 +513,7 @@ export async function handle(req: Request) {
             admin(u);
             const b = z.object({ id: uid.optional(), project_id: uid, name, active: z.number().int().min(0).max(1), sheet_tab: z.string().max(100).default(''), employee_ids: z.array(uid) }).parse(await req.json());
             const eid = b.id ?? id(), old = await one('SELECT * FROM accounts WHERE id=?', eid);
+            if (b.id && await one('SELECT 1 FROM deleted_work_accounts WHERE account_id=?', b.id)) fail('Restore the deleted work account before editing it.',409);
             if (old && old.project_id !== b.project_id)
                 fail('An account cannot move between projects.');
             if (b.id && !old)

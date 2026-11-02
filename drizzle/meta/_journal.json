@@ -64,6 +64,13 @@
       "when": 1793549000000,
       "tag": "0008_project_links",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1793630000000,
+      "tag": "0009_work_account_deletion",
+      "breakpoints": true
     }
   ]
 }

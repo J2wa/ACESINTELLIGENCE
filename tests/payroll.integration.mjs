@@ -193,6 +193,10 @@ await req('admin/project-archive',purge,admin,409);
 await assert.rejects(db.prepare('DELETE FROM payment_tasks WHERE task_id=?').bind(taskA).run(),/invoice_immutable/);
 await assert.rejects(db.prepare('DELETE FROM payment_invoice_items').run(),/invoice_immutable/);
 await req('tasks/delete',{id:taskA,version:2},admin,409);
+await req('admin/deletion',{entity:'accounts',id:account,action:'delete'},admin);
+assert(await db.prepare('SELECT task_id FROM payment_tasks WHERE task_id=?').bind(taskA).first());
+assert.equal((await req('invoices/'+aliceInvoice.id,null,a)).j.total_cents,24345);
+await req('admin/deletion',{entity:'accounts',id:account,action:'restore'},admin);
 checks+=9;
 console.log(`PASS: ${checks} payment API checks covering additive migration, previews, stale data, atomic rollback, idempotency, paid locks, invoice privacy, CSV, immutable history, and lifetime/monthly earnings.`);
 }finally{Date.now=originalNow;getClient().close();rmSync(dir,{recursive:true,force:true});}
