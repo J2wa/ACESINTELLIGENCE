@@ -1,4 +1,5 @@
 'use client';
+import LoadingStatus from './loading-status';
 import { useState, useCallback } from 'react';
 import ActionDialog from './action-dialog';
 import { Trash2, RotateCcw } from 'lucide-react';
@@ -21,5 +22,5 @@ export default function RecordDeletion({ entity, id, label, deleted, onReload, o
         } catch (failure) { setError((failure as Error).message); }
         finally { setBusy(false); }
     }
-    return <span className="record-action"><button type="button" className={'button row-action '+(deleted?'':'danger-button')} disabled={busy} onClick={()=>{setError('');setOpen(true);}} aria-label={`${deleted?'Restore':'Delete'} ${label}`}>{deleted?<RotateCcw size={14}/>:<Trash2 size={14}/>} {deleted?'Restore':'Delete'}</button>{open&&<ActionDialog title={deleted?'Restore record?':'Delete record?'} onClose={close} busy={busy} footer={<><button className="button" disabled={busy} onClick={close}>Cancel</button><button className={'button '+(deleted?'primary':'danger-button')} disabled={busy} onClick={change}>{busy?'Saving…':deleted?'Restore':'Delete'}</button></>}><p className="delete-record-name">{label}</p><p>{deleted?'This record will be restored.':explanation}</p>{!deleted&&<p className="muted">You can restore it using Show deleted.</p>}{error&&<div className="error-inline" role="alert">{error}</div>}</ActionDialog>}</span>;
+    return <span className="record-action"><button type="button" className={'button row-action '+(deleted?'':'danger-button')} disabled={busy} onClick={()=>{setError('');setOpen(true);}} aria-label={`${deleted?'Restore':'Delete'} ${label}`}>{deleted?<RotateCcw size={14}/>:<Trash2 size={14}/>} {deleted?'Restore':'Delete'}</button>{open&&<ActionDialog title={deleted?'Restore record?':'Delete record?'} onClose={close} busy={busy} footer={<><button className="button" disabled={busy} onClick={close}>Cancel</button><button className={'button '+(deleted?'primary':'danger-button')} disabled={busy} onClick={change}>{busy?<LoadingStatus>Saving…</LoadingStatus>:deleted?'Restore':'Delete'}</button></>}><p className="delete-record-name">{label}</p><p>{deleted?'This record will be restored.':explanation}</p>{!deleted&&<p className="muted">You can restore it using Show deleted.</p>}{error&&<div className="error-inline" role="alert">{error}</div>}</ActionDialog>}</span>;
 }

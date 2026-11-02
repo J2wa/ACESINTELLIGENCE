@@ -69,3 +69,9 @@ Team and invoice Delete actions use styled confirmation dialogs and remain recov
 
 ## Employee project shortcuts
 In Projects → Manage, enable **Show Start working button** and/or **Show AI assistant button**, then enter each full HTTPS or HTTP URL. Each button is independently optional. Only assigned employees see these shortcuts for active projects in Overview; links open a new tab and do not start the timer. Sign-in uses email and password only. Google Sheets sync remains available.
+
+## Automatic updates and loading feedback
+
+Visible signed-in workspaces check for updated tasks, hours, timesheets, assignments, and payments every five seconds. Returning to a tab or reconnecting also checks for changes. Hidden tabs pause background reads. Temporary connection errors keep the current data visible and retry automatically; passive updates do not extend an idle session. Open task forms keep their draft values, and existing stale-edit checks still apply.
+
+Employees can use **Log a task** on an assigned project in Overview to open the task form with that project selected. Invoice action buttons have separate spacing and stack on small screens. Spinners and status text show when sign-in, saves, approvals, uploads, invoice loading, history, or downloads are in progress.

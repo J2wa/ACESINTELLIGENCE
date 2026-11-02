@@ -36,3 +36,9 @@ Your work timer is available only for assigned, active projects whose administra
 Open the sidebar and check **Hide floating timer**. This browser remembers your choice. The timer keeps running; Start/Stop controls and elapsed time move to the sidebar. Uncheck it to show the floating panel again.
 
 Overview highlights your active assigned projects. Use Start working to open the assigned work website and AI assistant to open the project assistant when enabled by your administrator. These buttons do not start a timer. Select Today, This week, This month, Lifetime, or Custom dates to review your work; calendar boundaries use Manila time. Paid tasks show a single Paid status.
+
+## Automatic updates and loading feedback
+
+Visible signed-in workspaces check for updated tasks, hours, timesheets, assignments, and payments every five seconds. Returning to a tab or reconnecting also checks for changes. Hidden tabs pause background reads. Temporary connection errors keep the current data visible and retry automatically; passive updates do not extend an idle session. Open task forms keep their draft values, and existing stale-edit checks still apply.
+
+Employees can use **Log a task** on an assigned project in Overview to open the task form with that project selected. Invoice action buttons have separate spacing and stack on small screens. Spinners and status text show when sign-in, saves, approvals, uploads, invoice loading, history, or downloads are in progress.

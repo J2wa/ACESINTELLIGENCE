@@ -1,4 +1,5 @@
 'use client';
+import LoadingStatus from './loading-status';
 import { useRef, useState, type ClipboardEvent, type FormEvent } from 'react';
 import { Upload, Plus, Trash2, X, AlertCircle, FileSpreadsheet } from 'lucide-react';
 import { STATUSES } from '@/lib/core.mjs';
@@ -96,6 +97,6 @@ export default function BulkTaskEntry({ projects, accounts, isAdmin, annotator, 
             })}<td><button type="button" className="icon-button" aria-label={`Remove row ${index + 1}`} disabled={rows.length === 1} onClick={() => { setRows(previous => previous.filter(candidate => candidate.key !== row.key)); setErrors({}); setError(''); }}><Trash2 size={16}/></button></td></tr>)}</tbody></table></div>
             <div className="bulk-task-toolbar"><button type="button" className="button" disabled={rows.length >= BULK_LIMIT} onClick={() => addRows(1)}><Plus size={15}/>Add row</button><button type="button" className="text-button" disabled={rows.length >= BULK_LIMIT} onClick={() => addRows(5)}>Add 5 rows</button><span>{entered.length} tasks entered · {rows.length}/{BULK_LIMIT} rows</span></div></fieldset>
             <small>{basis === 'VIDEO_HOUR' ? 'Video duration and optional working minutes are separate. ' : basis === 'WORKING_HOUR' ? 'Enter working minutes for each task. ' : 'Only task details and optional notes are needed. '}All rows must pass validation before any task is saved.</small>
-        </div><div className="modal-footer"><button type="button" className="button" disabled={busy} onClick={onClose}>Cancel</button><button type="submit" className="button primary" disabled={busy || !entered.length || !projectId || !accountId}><Upload size={16}/>{busy ? 'Uploading…' : `Upload ${entered.length || ''} task${entered.length === 1 ? '' : 's'}`}</button></div></form>
+        </div><div className="modal-footer"><button type="button" className="button" disabled={busy} onClick={onClose}>Cancel</button><button type="submit" className="button primary" disabled={busy || !entered.length || !projectId || !accountId}><Upload size={16}/>{busy ? <LoadingStatus>Uploading…</LoadingStatus> : `Upload ${entered.length || ''} task${entered.length === 1 ? '' : 's'}`}</button></div></form>
     </section></div>;
 }

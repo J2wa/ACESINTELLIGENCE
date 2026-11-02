@@ -154,7 +154,7 @@ export async function handle(req: Request) {
             response.headers.set('Location', '/');
             return new Response(null, { status: 302, headers: response.headers });
         }
-        const u = await session(req, path !== 'sync');
+        const u = await session(req, path !== 'sync' && !(path === 'workspace' && new URL(req.url).searchParams.get('background') === '1'));
         if (!u)
             fail('Your session has expired. Please sign in.', 401);
         await ensurePayrollSchema();
