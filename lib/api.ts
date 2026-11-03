@@ -1,3 +1,4 @@
+import {recordPresence,presenceList} from './presence';
 import { ensureWorkAccountDeletion, changeWorkAccountDeletion } from './work-account-deletion';
 import { ensureProjectLinks, projectLinkFields, resolveProjectLinks } from './project-links';
 import { exportArchive } from './archive-export';
@@ -155,7 +156,7 @@ export async function handle(req: Request) {
             response.headers.set('Location', '/');
             return new Response(null, { status: 302, headers: response.headers });
         }
-        const u = await session(req, path !== 'sync' && !(path === 'workspace' && new URL(req.url).searchParams.get('background') === '1'));
+        const u = await session(req, !['sync','presence','admin/presence'].includes(path) && !(path === 'workspace' && new URL(req.url).searchParams.get('background') === '1'));
         if (!u)
             fail('Your session has expired. Please sign in.', 401);
         await ensurePayrollSchema();
@@ -177,6 +178,8 @@ export async function handle(req: Request) {
             const b = z.object({ entity:z.enum(['projects','users','invoices','accounts']), id:uid, action:z.enum(['delete','restore']) }).parse(await req.json());
             return json(b.entity==='accounts' ? await changeWorkAccountDeletion(u,b.id,b.action) : await changeDeletion(u,b.entity,b.id,b.action));
         }
+        if (path === 'presence' && method === 'POST') { await recordPresence(req,u.id); return json({saved:true}); }
+        if (path === 'admin/presence' && method === 'GET') { admin(u); return json(await presenceList()); }
         if (path === 'auth/logout' && method === 'POST') {
             await stmt('DELETE FROM sessions WHERE token_hash=?', await sha(cookie(req, 'aces_session'))).run();
             return new Response('{}', { headers: { 'Set-Cookie': setCookie(req, 'aces_session', '', 0) } });

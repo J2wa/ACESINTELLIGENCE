@@ -78,3 +78,6 @@ Employees can use **Log a task** on an assigned project in Overview to open the 
 
 ## Delete or restore work accounts
 Under Projects → Work accounts, choose Delete and confirm. Only administrators can delete or restore accounts. Deleted accounts are hidden and cannot receive new tasks; tasks, hours, assignments, tracker details and payment records are retained. Stop linked running timers first. Enable Show deleted work accounts to restore an account to its previous active/inactive state. Changes are audited.
+
+### Team activity
+Open **Team → Team activity** for online/offline counts, status filters, and last online times in Manila. Only admins can read this list. Online means interaction with a visible Workhub page within two minutes and a valid signed-in session; idle or closed browsers age offline automatically. Updates run every 30 seconds. Signing out removes that session immediately; another active device can keep the user online. Historical last activity survives sign-out. Tracking starts with this release; older activity is not guessed. Heartbeats and status polling do not extend the 30-minute session idle timeout. Presence is not a measure of billable time or employee productivity.

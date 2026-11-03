@@ -37,3 +37,6 @@ export const workClientRates = sqliteTable('work_client_rates', { kind:text('kin
 export const projectLinks = sqliteTable('project_links', { project_id:text('project_id').primaryKey().references(()=>projects.id,{onDelete:'cascade'}),work_enabled:integer('work_enabled').notNull().default(0),work_url:text('work_url').notNull().default(''),assistant_enabled:integer('assistant_enabled').notNull().default(0),assistant_url:text('assistant_url').notNull().default('') });
 
 export const deletedWorkAccounts = sqliteTable('deleted_work_accounts',{account_id:text('account_id').primaryKey().references(()=>accounts.id,{onDelete:'cascade'}),deleted_at:integer('deleted_at').notNull(),deleted_by:text('deleted_by').notNull().references(()=>users.id),previous_active:integer('previous_active').notNull()});
+
+export const userPresence = sqliteTable('user_presence',{user_id:text('user_id').primaryKey().references(()=>users.id,{onDelete:'cascade'}),last_active_at:integer('last_active_at').notNull()});
+export const sessionPresence = sqliteTable('session_presence',{token_hash:text('token_hash').primaryKey().references(()=>sessions.token_hash,{onDelete:'cascade'}),last_active_at:integer('last_active_at').notNull()});
