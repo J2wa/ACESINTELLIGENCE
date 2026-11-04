@@ -238,9 +238,9 @@ export async function handle(req: Request) {
                     fail('Project and account cannot change on an existing entry.');
             }
             await editableWeek(who, midnight(b.date));
-            const duplicate = await one('SELECT id,user_id FROM task_entries WHERE project_id=? AND account_id=? AND video_id=? AND id!=?', b.project_id, b.account_id, b.video_id, b.id ?? '');
+            const duplicate = await one('SELECT * FROM task_entries WHERE project_id=? AND account_id=? AND video_id=? AND id!=?', b.project_id, b.account_id, b.video_id, b.id ?? '');
             if (duplicate)
-                fail('This task ID already exists in this project and account.', 409, { existing_id: u.role === 'ADMIN' || duplicate.user_id === u.id ? duplicate.id : null, duplicate: true });
+                fail('This task ID already exists in this project and account.', 409, { existing_id: u.role === 'ADMIN' || duplicate.user_id === u.id ? duplicate.id : null, existing: u.role === 'ADMIN' || duplicate.user_id === u.id ? duplicate : null, duplicate: true });
             const taskId = b.id ?? id(), after = { ...b, id: taskId, duration_seconds: seconds, user_id: who };
             const statements: any[] = [];
             if (old)
@@ -309,10 +309,10 @@ export async function handle(req: Request) {
                     throw error;
                 }
             }
-            const duplicates = await all('SELECT project_id,account_id,video_id FROM task_entries WHERE ' + rows.map(() => '(project_id=? AND account_id=? AND video_id=?)').join(' OR '), ...rows.flatMap(row => [row.project_id, row.account_id, row.video_id]));
+            const duplicates = await all('SELECT * FROM task_entries WHERE ' + rows.map(() => '(project_id=? AND account_id=? AND video_id=?)').join(' OR '), ...rows.flatMap(row => [row.project_id, row.account_id, row.video_id]));
             if (duplicates.length) {
                 const index = rows.findIndex(row => duplicates.some(existing => existing.project_id === row.project_id && existing.account_id === row.account_id && existing.video_id === row.video_id));
-                fail(`Row ${index + 1}: This task ID already exists in the selected project and account.`, 409);
+                fail(`Row ${index + 1}: Duplicate task IDs found. Review the matching entries below.`, 409, { duplicates: rows.flatMap((row,i) => { const existing=duplicates.find(d=>d.project_id===row.project_id && d.account_id===row.account_id && d.video_id===row.video_id);return existing?[{row:i+1,video_id:row.video_id,existing:u.role==='ADMIN'||existing.user_id===u.id?existing:null}]:[]; }) });
             }
             // One transaction prevents partial uploads, including when a concurrent edit creates a conflict.
             await DB().batch(statements);
@@ -622,7 +622,7 @@ export async function handle(req: Request) {
         if (message.includes('UNIQUE constraint failed'))
             return json({ error: 'This record already exists. Refresh to view the existing entry.', duplicate: message.includes('task_entries') }, 409);
         if (error.status)
-            return json({ error: message, existing_id: error.existing_id, duplicate: error.duplicate }, error.status);
+            return json({ error: message, existing_id: error.existing_id, existing: error.existing, duplicates: error.duplicates, duplicate: error.duplicate }, error.status);
         console.error('Workhub request failed:', message.slice(0, 300));
         return json({ error: 'The request could not be completed. Please try again.' }, 500);
     }

@@ -81,3 +81,10 @@ Under Projects → Work accounts, choose Delete and confirm. Only administrators
 
 ### Team activity
 Open **Team → Team activity** for online/offline counts, status filters, and last online times in Manila. Only admins can read this list. Online means interaction with a visible Workhub page within two minutes and a valid signed-in session; idle or closed browsers age offline automatically. Updates run every 30 seconds. Signing out removes that session immediately; another active device can keep the user online. Historical last activity survives sign-out. Tracking starts with this release; older activity is not guessed. Heartbeats and status polling do not extend the 30-minute session idle timeout. Presence is not a measure of billable time or employee productivity.
+
+### Manage employee tasks and duplicates
+In Team, choose **View tasks** for all of an employee’s entries. Task rows have **Edit task** and **Delete** controls. The task editor lists linked time inputs with edit/delete controls. Paid work and submitted/approved weeks remain protected.
+
+Duplicate task IDs match exactly within the same project and work account, across dates and employees. The task form compares the matching entry with your inputs. Choose **Yes, review update to existing entry**, review it, then **Save changes**. The original employee and working time stay attached. Change the task ID to create a separate entry.
+
+Mass uploads show a row-to-existing-entry duplicate map. Each accessible match has an explicit update confirmation. Successful updates remove the row from the pending upload; upload remaining rows when ready. Entered minutes are not added during duplicate updates. Use linked time controls for time corrections. Employees can only access their own matching entries.

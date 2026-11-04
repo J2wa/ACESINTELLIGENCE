@@ -171,6 +171,21 @@ const bulkTimes=bulkWorkspace.times.filter(t=>bulkTasks.some(task=>task.id===t.t
 assert.equal(bulkTimes.reduce((sum,t)=>sum+t.end_ms-t.start_ms,0),75*60000);assert.equal(bulkTimes[0].end_ms,bulkTimes[1].start_ms);
 for(const task of bulkTasks){assert(await db.prepare("SELECT id FROM audit_log WHERE entity_id=? AND action='created'").bind(task.id).first());assert(await db.prepare('SELECT task_id FROM sync_jobs WHERE task_id=?').bind(task.id).first());checks++;}
 await req('tasks/bulk',{tasks:[{...bulkBase,video_id:'000BULK-A'}]},employee,409);
+// Duplicate maps respect ownership and confirmed updates reuse IDs without adding time.
+const mapped=(await req('tasks/bulk',{tasks:[{...bulkBase,video_id:'000BULK-A',minutes:0},{...bulkBase,video_id:'000BULK-B',minutes:0}]},employee,409)).j;
+assert.equal(mapped.duplicates.length,2);assert.deepEqual(mapped.duplicates.map(d=>d.row),[1,2]);
+assert.equal(mapped.duplicates[0].existing.id,bulkTasks.find(t=>t.video_id==='000BULK-A').id);
+const hidden=(await req('tasks',{...body,video_id:'PRIVATE-ID'},employee,409)).j;assert.equal(hidden.existing,null);assert.equal(hidden.existing_id,null);
+const hiddenBulk=(await req('tasks/bulk',{tasks:[{...bulkBase,video_id:'PRIVATE-ID',minutes:0}]},employee,409)).j;assert.equal(hiddenBulk.duplicates[0].existing,null);
+const adminDuplicate=(await req('tasks',{...body,video_id:'PRIVATE-ID'},admin,409)).j;assert.equal(adminDuplicate.existing.id,'private-task');
+const existing=mapped.duplicates[0].existing;
+await req('tasks',{...existing,duration:'0:05:00',notes:'Updated after duplicate review',minutes:0},employee);
+const updated=(await req('workspace',null,employee)).j;
+assert.equal(updated.tasks.filter(t=>t.video_id===existing.video_id).length,1);
+assert.equal(updated.tasks.find(t=>t.id===existing.id).notes,'Updated after duplicate review');
+assert.deepEqual(updated.times.filter(t=>t.task_id===existing.id),bulkWorkspace.times.filter(t=>t.task_id===existing.id));
+await req('tasks',{...existing,duration:'0:05:00',minutes:0},employee,409);
+checks+=8;
 const maxUpload=await req('tasks/bulk',{tasks:Array.from({length:100},(_,i)=>({...bulkBase,video_id:`BULK-LIMIT-${String(i).padStart(3,'0')}`,minutes:0}))},employee);
 assert.equal(maxUpload.j.count,100);checks++;
 // Exercise a full 100-task approval batch, with a distinct linked minute for each task.
