@@ -4,7 +4,7 @@ import {tmpdir} from 'node:os';import {join} from 'node:path';
 import {randomBytes} from 'node:crypto';import assert from 'node:assert/strict';
 import {day,midnight,weekStart,addDays} from '../lib/core.mjs';
 // Keep time-sensitive scenarios valid even when tests run just after Manila midnight.
-const originalNow=Date.now, testNow=midnight(day())+12*3600000;
+const originalNow=Date.now, testNow=midnight(day().slice(0,7)+'-15')+12*3600000;
 let clockTicks=0;
 Date.now=()=>testNow+clockTicks++;
 const testDir=mkdtempSync(join(tmpdir(),'workhub-test'));
@@ -146,7 +146,7 @@ payTask=(await req('workspace',null,admin)).j.tasks.find(t=>t.id===perTask);
 assert.equal(payTask.pay_basis,'TASK');assert.equal(payTask.rate_cents,5000);
 const payroll=(await req('export?kind=payroll',null,admin)).j;
 assert(payroll.includes('Per video hour') && payroll.includes('Per task'));
-await req('tasks',{...body,date:addDays(date,-1),id:minutesTask,version:1,video_id:'MINUTES-ONLY',minutes:1},employee,400);
+await req('tasks',{...body,date:addDays(date,-1),id:minutesTask,version:1,video_id:'MINUTES-ONLY',minutes:1},employee,409);
 // Bulk task entry validates every row before committing tasks and working time.
 const bulkDate=addDays(date,-21), bulkBase={...body,date:bulkDate,minutes:30};
 const bulkBefore=(await req('workspace',null,employee)).j.tasks.length;
@@ -226,7 +226,7 @@ await req('timesheets',{week_start:weekStart(date),action:'submit'},employee);aw
 const exp=await dispatch(base+'/api/export?format=xlsx',{headers:{Cookie:employee}});assert.equal(exp.status,200);assert.equal((new Uint8Array(await exp.arrayBuffer()))[0],80);checks++;const history=(await req('audit?task='+task,null,employee)).j;assert(history.length>=2);
 const csrf=await dispatch(base+'/api/timer',{method:'POST',headers:{Origin:'https://invalid.example','Content-Type':'application/json',Cookie:employee},body:JSON.stringify({action:'start',project_id:p})});assert.equal(csrf.status,403);checks++;
 // Admin-selected owners, project-specific fields, and deletion permissions.
-const logDate=addDays(date,-35);
+const logDate=addDays(date,-7);
 const logBody={date:logDate,project_id:p,account_id:account,status:'PENDING'};
 await req('tasks',{...logBody,video_id:'NO-VIDEO-DURATION'},employee,400);
 await req('tasks',{...logBody,video_id:'BAD-VIDEO-DURATION',duration:'bad'},employee,400);
@@ -281,6 +281,68 @@ await req('timer',{action:'start',project_id:p,task_id:runningTask},employee);
 await req('tasks/delete',{id:runningTask,version:1},admin,409);
 await req('timer',{action:'stop'},employee);
 await req('tasks/delete',{id:runningTask,version:1},admin);
+// Employee account edits and atomic deletion use an isolated current-month project.
+const mutationProject=(await req('projects',{name:'Task mutation QA',status:'active',hourly_target:null,rate_cents:1000,pay_basis:'TASK',color:'#2563eb',employee_ids:[employeeId]},admin)).j.id;
+const mutationAccount = async (name,employee_ids=[employeeId]) => { await req('accounts',{project_id:mutationProject,name,active:1,sheet_tab:name,employee_ids},admin); return (await db.prepare('SELECT id FROM accounts WHERE project_id=? AND name=?').bind(mutationProject,name).first()).id; };
+const ma=await mutationAccount('Original'),mb=await mutationAccount('Destination'),mc=await mutationAccount('Unassigned',[]);
+const mutationBody={date,project_id:mutationProject,account_id:ma,status:'PENDING',minutes:0,notes:'Mutation test'};
+const createMutation=async(video_id,extra={})=>(await req('tasks',{...mutationBody,video_id,...extra},employee)).j.id;
+const moving=await createMutation('MOVE');
+await req('tasks',{...mutationBody,id:moving,version:1,video_id:'MOVE',account_id:mc},employee,403);
+await req('tasks',{...mutationBody,id:moving,version:1,video_id:'MOVE',account_id:account},employee,400);
+await createMutation('DUPLICATE',{account_id:mb});
+await req('tasks',{...mutationBody,id:moving,version:1,video_id:'DUPLICATE',account_id:mb},employee,409);
+assert.equal((await db.prepare('SELECT account_id FROM task_entries WHERE id=?').bind(moving).first()).account_id,ma);
+await req('tasks',{...mutationBody,id:moving,version:1,video_id:'MOVE',account_id:mb},employee);
+assert.equal((await db.prepare('SELECT account_id FROM task_entries WHERE id=?').bind(moving).first()).account_id,mb);
+await req('tasks',{...mutationBody,id:moving,version:1,video_id:'STALE'},employee,409);
+await req('tasks',{...mutationBody,id:moving,version:2,video_id:'MOVE',status:'APPROVED'},employee,403);
+const foreign=(await req('tasks',{...mutationBody,video_id:'FOREIGN',user_id:'other'},admin)).j.id;
+await req('tasks',{...mutationBody,id:foreign,version:1,video_id:'FOREIGN'},employee,403);
+const eligible=await createMutation('ELIGIBLE'),approved=await createMutation('APPROVED');
+// An approval after selection invalidates both stale versions and refreshed approved rows.
+await req('task-status',{tasks:[{id:approved,version:1}]},admin);
+await req('tasks',{...mutationBody,id:approved,version:2,video_id:'APPROVED'},employee,409);
+await req('tasks/bulk-delete',{tasks:[{id:eligible,version:1},{id:approved,version:1}]},employee,409);
+assert(await db.prepare('SELECT 1 FROM task_entries WHERE id=?').bind(eligible).first());
+assert.equal(await db.prepare("SELECT 1 FROM audit_log WHERE entity_id=? AND action='deleted'").bind(eligible).first(),null);
+await req('tasks/delete',{id:approved,version:2},employee,409);
+await req('tasks/delete',{id:approved,version:2},admin,409);
+const previousMonth=await createMutation('PREVIOUS-MONTH',{date:addDays(date.slice(0,7)+'-01',-1)});
+await req('tasks/delete',{id:previousMonth,version:1},employee,409);
+await req('tasks/bulk-delete',{tasks:[{id:eligible,version:1},{id:foreign,version:1}]},employee,403);
+await req('tasks/bulk-delete',{tasks:[{id:eligible,version:1},{id:eligible,version:1}]},employee,400);
+await req('tasks/bulk-delete',{tasks:[]},employee,400);
+await req('tasks/bulk-delete',{tasks:Array.from({length:101},(_,i)=>({id:String(i),version:1}))},employee,400);
+await req('tasks/bulk-delete',{tasks:[{id:eligible}]},employee,400);
+const skipped=await createMutation('SKIPPED',{status:'SKIPPED (NO CHANGES)'});
+const returned=await createMutation('RETURNED');
+await db.prepare("UPDATE task_entries SET status='RETURNED',version=version+1 WHERE id=?").bind(returned).run();
+const mutationReviewed=await createMutation('REVIEWED');
+await db.prepare("INSERT INTO task_hour_reviews(task_id,signature,status,reviewed_by,reviewed_at) VALUES(?,'test','APPROVED',?,?)").bind(mutationReviewed,setup.j.user.id,Date.now()).run();
+await req('tasks/delete',{id:mutationReviewed,version:1},employee,409);
+await req('tasks',{...mutationBody,id:mutationReviewed,version:1,video_id:'REVIEWED'},employee,409);
+// Destination cleanup is durable and a second move cannot overwrite its tombstone.
+await db.prepare("UPDATE projects SET spreadsheet_id='fake-test-sheet' WHERE id=?").bind(mutationProject).run();
+const syncMove=await createMutation('SYNC-MOVE');
+await req('tasks',{...mutationBody,id:syncMove,version:1,video_id:'SYNC-MOVE',account_id:mb},employee);
+const tombstone=await db.prepare('SELECT * FROM deleted_task_sync WHERE task_id=?').bind(syncMove).first();
+assert.equal(tombstone.sheet_tab,'Original');assert.equal(tombstone.spreadsheet_id,'fake-test-sheet');
+await req('tasks',{...mutationBody,id:syncMove,version:2,video_id:'SYNC-MOVE',account_id:ma},employee,409);
+await req('tasks/delete',{id:syncMove,version:2},employee,409);
+// Failure after the first deletion must roll back cleanup, audit and outbox writes.
+await req('tasks/bulk-delete',{tasks:[{id:eligible,version:1},{id:approved,version:2}]},employee,409);
+assert.equal(await db.prepare('SELECT 1 FROM deleted_task_sync WHERE task_id=?').bind(eligible).first(),null);
+assert(await db.prepare('SELECT 1 FROM sync_jobs WHERE task_id=?').bind(eligible).first());
+const deletedBatch=(await req('tasks/bulk-delete',{tasks:[{id:eligible,version:1},{id:skipped,version:1},{id:returned,version:2}]},employee)).j;
+assert.equal(deletedBatch.deleted,3);
+for (const target of [eligible,skipped,returned]) {
+ assert.equal(await db.prepare('SELECT 1 FROM task_entries WHERE id=?').bind(target).first(),null);
+ assert(await db.prepare('SELECT 1 FROM deleted_task_sync WHERE task_id=?').bind(target).first());
+ assert(await db.prepare("SELECT 1 FROM audit_log WHERE entity_id=? AND action='deleted'").bind(target).first());
+}
+checks+=15;
+
 // Project archive: role checks, explicit confirmation, stale selection and atomic deletion.
 const archiveSettings={name:'Archive QA',description:'',status:'active',hourly_target:null,rate_cents:1000,pay_basis:'TASK',color:'#2563eb',employee_ids:[employeeId]};
 const archiveId=(await req('projects',archiveSettings,admin)).j.id;

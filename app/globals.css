@@ -119,3 +119,9 @@ input:focus,select:focus,textarea:focus{border-color:#60a5fa;box-shadow:0 0 0 3p
 .presence-panel{margin-bottom:24px}.presence-panel .card-title p,.presence-note{color:var(--muted);font-size:12px;line-height:1.6}.presence-panel select{margin-left:8px;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:inherit}.presence-summary{display:flex;flex-wrap:wrap;gap:16px;padding:12px 24px}.presence-summary small{color:var(--muted)}.presence-note{padding:12px 24px}.presence-status{display:inline-flex;align-items:center;gap:8px;white-space:nowrap}.presence-status>span{width:8px;height:8px;border-radius:50%;background:#94a3b8}.presence-status.is-online>span{background:#3b82f6}.presence-panel>p{padding:12px 24px}
 
 .duplicate-review{padding:16px;margin:16px 0;border:1px solid var(--line);border-radius:12px;background:var(--surface)}.duplicate-review p{font-size:13px;line-height:1.6;overflow-wrap:anywhere}.duplicate-review td{white-space:normal;overflow-wrap:anywhere;max-width:240px}.duplicate-review>div{margin-bottom:12px}.linked-task-time .heading-actions{flex-wrap:wrap;margin:10px 0}
+
+.task-delete-dialog { border: 0; margin: auto; max-height: 85vh; overflow: auto; }
+.task-delete-dialog::backdrop { background: rgb(0 0 0 / 55%); }
+.task-delete-dialog ul { max-height: 30vh; overflow: auto; overflow-wrap: anywhere; }
+.task-delete-dialog { padding: 0; color: var(--text); width: min(535px, calc(100vw - 24px)); }
+.task-delete-dialog .modal-body > p { margin-bottom: 12px; }

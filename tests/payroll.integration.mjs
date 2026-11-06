@@ -39,7 +39,12 @@ let preview=(await req('payroll/preview',{filters},admin)).j;
 assert.equal(preview.total_cents,27345);assert.equal(preview.people.length,2);assert.equal(preview.task_count,3);assert.equal(preview.time_count,1);
 const payload={filters,signature:preview.signature,request_id:randomUUID(),reference:'PAY-REFERENCE-001',notes:'Recorded payment'};
 await req('payroll/pay',payload,a,403);
+// Approved hours must be returned before an employee edits this task.
+await req('tasks',{...taskBody,id:taskA,version:1,video_id:'000-ALICE',notes:'Checked work',minutes:0},a,409);
+const editHoursSignature=workspace.tasks.find(t=>t.id===taskA).hours_signature;
+await req('task-hours',{task_id:taskA,signature:editHoursSignature,action:'return'},admin);
 await req('tasks',{...taskBody,id:taskA,version:1,video_id:'000-ALICE',notes:'Checked work',minutes:0},a);
+await req('task-hours',{task_id:taskA,signature:editHoursSignature,action:'approve'},admin);
 await req('payroll/pay',payload,admin,409);assert.equal((await db.prepare('SELECT COUNT(*) count FROM payment_invoices').first()).count,0);
 preview=(await req('payroll/preview',{filters},admin)).j;payload.signature=preview.signature;
 // A late database error rolls back invoices, locks and audit records together.
@@ -151,6 +156,8 @@ assert.equal((await db.prepare("SELECT rate_cents FROM work_client_rates WHERE k
 await req('projects',{...updateProject,client_rate_cents:0},admin);
 const freePriced=(await req('tasks',{...pieceBody,video_id:'ZERO-CLIENT-RATE'},a)).j.id;
 assert.equal((await db.prepare("SELECT rate_cents FROM work_client_rates WHERE kind='task' AND work_id=?").bind(freePriced).first()).rate_cents,0);
+await req('tasks/bulk-delete',{tasks:[{id:freePriced,version:1},{id:taskA,version:2}]},admin,409);
+assert(await db.prepare('SELECT 1 FROM task_entries WHERE id=?').bind(freePriced).first());
 await req('tasks/delete',{id:freePriced,version:1},admin);
 assert.equal(await db.prepare("SELECT rate_cents FROM work_client_rates WHERE kind='task' AND work_id=?").bind(freePriced).first(),null);
 // Empty archive must never bypass immutable invoice history.

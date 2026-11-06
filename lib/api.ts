@@ -1,3 +1,4 @@
+import { deleteTasks, editTask } from './task-mutations';
 import {recordPresence,presenceList} from './presence';
 import { ensureWorkAccountDeletion, changeWorkAccountDeletion } from './work-account-deletion';
 import { ensureProjectLinks, projectLinkFields, resolveProjectLinks } from './project-links';
@@ -62,7 +63,7 @@ async function snapshot(u: any) {
         projects: await all('SELECT p.*,(SELECT deleted_at FROM deleted_records WHERE entity=\'projects\' AND entity_id=p.id) AS deleted_at,COALESCE(s.enabled,0) AS time_tracking_enabled,COALESCE(l.work_enabled,0) AS work_enabled,COALESCE(l.work_url,\'\') AS work_url,COALESCE(l.assistant_enabled,0) AS assistant_enabled,COALESCE(l.assistant_url,\'\') AS assistant_url FROM projects p LEFT JOIN project_time_tracking s ON s.project_id=p.id LEFT JOIN project_links l ON l.project_id=p.id' + (u.role === 'ADMIN' ? '' : ' WHERE p.id IN (SELECT project_id FROM project_assignments WHERE user_id=?)'), ...args),
         accounts: await all('SELECT accounts.*,(SELECT deleted_at FROM deleted_work_accounts WHERE account_id=accounts.id) AS deleted_at FROM accounts' + (u.role === 'ADMIN' ? '' : ' WHERE id IN (SELECT account_id FROM account_assignments WHERE user_id=?)'), ...args),
         assignments: await all('SELECT * FROM project_assignments' + (u.role === 'ADMIN' ? '' : ' WHERE user_id=?'), ...args), account_assignments: await all('SELECT * FROM account_assignments' + (u.role === 'ADMIN' ? '' : ' WHERE user_id=?'), ...args),
-        tasks: await all('SELECT t.*,(SELECT invoice_id FROM payment_tasks WHERE task_id=t.id) AS paid_invoice_id,(SELECT COALESCE(SUM((end_ms-start_ms)/1000),0) FROM time_entries WHERE task_id=t.id AND end_ms IS NOT NULL) AS spent_seconds FROM task_entries t' + where + ' ORDER BY date DESC,created_at DESC', ...args),
+        tasks: await all('SELECT t.*,EXISTS(SELECT 1 FROM payment_invoice_items i WHERE i.task_id=t.id OR i.time_entry_id IN (SELECT id FROM time_entries WHERE task_id=t.id)) AS invoice_locked,EXISTS(SELECT 1 FROM task_hour_reviews r WHERE r.task_id=t.id AND r.status=\'APPROVED\') AS review_approved,EXISTS(SELECT 1 FROM deleted_task_sync d WHERE d.task_id=t.id) AS removal_pending,(SELECT invoice_id FROM payment_tasks WHERE task_id=t.id) AS paid_invoice_id,(SELECT COALESCE(SUM((end_ms-start_ms)/1000),0) FROM time_entries WHERE task_id=t.id AND end_ms IS NOT NULL) AS spent_seconds FROM task_entries t' + where + ' ORDER BY date DESC,created_at DESC', ...args),
         times: await all('SELECT t.*,(SELECT invoice_id FROM payment_times WHERE time_entry_id=t.id) AS paid_invoice_id FROM time_entries t' + where + ' ORDER BY start_ms DESC', ...args), sheets: await all('SELECT t.* FROM timesheets t' + where + ' ORDER BY week_start DESC', ...args),
         invoices: await all('SELECT t.*,(SELECT deleted_at FROM deleted_records WHERE entity=\'invoices\' AND entity_id=t.id) AS deleted_at FROM payment_invoices t' + where + ' ORDER BY paid_at DESC,number DESC', ...args), invoice_items: await all('SELECT t.* FROM payment_invoice_items t' + where, ...args),
         sync: u.role === 'ADMIN' ? await all("SELECT task_id,status,last_error,updated_at FROM sync_jobs UNION ALL SELECT task_id,CASE WHEN last_error IS NULL THEN 'pending' ELSE 'error' END,last_error,updated_at FROM deleted_task_sync") : [], settings: u.role === 'ADMIN' ? { spreadsheet_id: (await one("SELECT value FROM settings WHERE key='spreadsheet_id'"))?.value ?? '', google_configured: false, sheets_configured: !!config('GOOGLE_SERVICE_ACCOUNT_JSON'), google_only: false } : {}
@@ -220,36 +221,20 @@ export async function handle(req: Request) {
         }
         if (path === 'tasks' && method === 'POST') {
             const b = taskInput.parse(await req.json());
-            const old = b.id ? await one('SELECT * FROM task_entries WHERE id=?', b.id) : null;
-            if (b.id && !old)
-                fail('Task not found.', 404);
-            if (old && old.user_id !== u.id && u.role !== 'ADMIN')
-                fail('You can only edit your own entries.', 403);
+            if (b.id) { await editTask(u,b); await safeSync(3,b.id); return json({saved:true,id:b.id,sync:'queued'}); }
             if (u.role !== 'ADMIN' && !['PENDING', 'SKIPPED (NO CHANGES)'].includes(b.status))
                 fail('Only coordinators can approve or return tasks.', 403);
             const p = await assignment(u, b.project_id, b.account_id);
-            const who = await taskOwner(u, b.user_id, old?.user_id);
-            const { seconds, minutes } = taskMeasures(b, old?.pay_basis ?? p.pay_basis);
-            if (old) {
-                await editableWeek(old.user_id, midnight(old.date));
-                if (old.version !== b.version)
-                    fail('This entry changed. Refresh before editing.', 409);
-                if (old.project_id !== b.project_id || old.account_id !== b.account_id)
-                    fail('Project and account cannot change on an existing entry.');
-            }
+            const who = await taskOwner(u, b.user_id);
+            const { seconds, minutes } = taskMeasures(b, p.pay_basis);
             await editableWeek(who, midnight(b.date));
             const duplicate = await one('SELECT * FROM task_entries WHERE project_id=? AND account_id=? AND video_id=? AND id!=?', b.project_id, b.account_id, b.video_id, b.id ?? '');
             if (duplicate)
                 fail('This task ID already exists in this project and account.', 409, { existing_id: u.role === 'ADMIN' || duplicate.user_id === u.id ? duplicate.id : null, existing: u.role === 'ADMIN' || duplicate.user_id === u.id ? duplicate : null, duplicate: true });
             const taskId = b.id ?? id(), after = { ...b, id: taskId, duration_seconds: seconds, user_id: who };
             const statements: any[] = [];
-            if (old)
-                statements.push(stmt('UPDATE task_entries SET date=?,video_id=?,duration_seconds=?,status=?,notes=?,version=?,updated_at=? WHERE id=?', b.date, b.video_id, seconds, b.status, b.notes, b.version! + 1, now, taskId));
-            else
                 statements.push(stmt('INSERT INTO task_entries(id,date,project_id,account_id,user_id,video_id,duration_seconds,status,notes,created_at,updated_at,pay_basis,rate_cents) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)', taskId, b.date, b.project_id, b.account_id, who, b.video_id, seconds, b.status, b.notes, now, now, p.pay_basis, p.rate_cents));
             if (minutes > 0) {
-                if (old)
-                    fail('Edit working time in Timesheets to avoid double counting.');
                 const dateStart = midnight(b.date);
                 const existing = await all('SELECT start_ms,end_ms FROM time_entries WHERE user_id=? AND start_ms<? AND COALESCE(end_ms,?)>?', who, dateStart + 86400000, now, dateStart);
                 let slots;
@@ -260,7 +245,7 @@ export async function handle(req: Request) {
                     statements.push(stmt("INSERT INTO time_entries(id,project_id,user_id,task_id,start_ms,end_ms,rate_cents,source,notes,created_at,pay_basis) VALUES(?,?,?,?,?,?,?,'task',?,?,?)", id(), b.project_id, who, taskId, slot.start_ms, slot.end_ms, p.rate_cents, 'Task minutes: automatically allocated; not exact clock times.', now, p.pay_basis));
                 }
             }
-            statements.push(audit(u, 'task_entries', taskId, old ? 'updated' : 'created', old, after), queue(taskId));
+            statements.push(audit(u, 'task_entries', taskId, 'created', null, after), queue(taskId));
             await DB().batch(statements);
             let sync = 'queued';
             try {
@@ -383,36 +368,29 @@ export async function handle(req: Request) {
             await safeSync(1, b.task_id);
             return json({saved:true});
         }
-        if (['tasks/delete', 'time/delete'].includes(path) && method === 'POST') {
-            const b = z.object({ id: uid, version: z.number().int().optional() }).parse(await req.json());
-            const isTask = path === 'tasks/delete', table = isTask ? 'task_entries' : 'time_entries';
+        if (['tasks/delete','tasks/bulk-delete'].includes(path) && method === 'POST') {
+            const item = z.object({id:uid,version:z.number().int().min(1)}).strict();
+            const body = await req.json();
+            const tasks = path === 'tasks/delete' ? [item.parse(body)] : z.object({tasks:z.array(item).min(1).max(100)}).strict().parse(body).tasks;
+            await deleteTasks(u,tasks);
+            await safeSync(3);
+            return json({saved:true,deleted:tasks.length,message:`Deleted ${tasks.length} task(s) and linked unpaid working time.`});
+        }
+        if (path === 'time/delete' && method === 'POST') {
+            const b = z.object({ id: uid }).parse(await req.json());
             const transaction = await getClient().transaction('write');
-            type LogRow = { id: string; user_id: string; version: number; task_id: string | null; end_ms: number | null; project_id: string; account_id: string; spreadsheet_id?: string; sheet_tab?: string };
-            const readAll = async (sql: string, ...args: (string | number)[]) => (await transaction.execute({sql, args})).rows as unknown as LogRow[];
-            const readOne = async (sql: string, ...args: (string | number)[]) => (await readAll(sql, ...args))[0];
             try {
-                const old = await readOne(`SELECT * FROM ${table} WHERE id=?`, b.id);
-                if (!old) fail('Entry not found. Refresh the list.', 404);
-                if (u.role !== 'ADMIN' && old.user_id !== u.id) fail('You can only delete your own logs.', 403);
-                if (isTask && old.version !== b.version) fail('This entry changed. Refresh before deleting.', 409);
-                const linked = isTask ? await readAll('SELECT * FROM time_entries WHERE task_id=?', old.id) : [old];
-                if (linked.some(t => t.end_ms === null)) fail('Stop linked timers before deleting.', 409);
-                const statements: ReturnType<typeof stmt>[] = [];
-                if (isTask) {
-                    const target = await readOne("SELECT COALESCE(NULLIF(p.spreadsheet_id,''),(SELECT value FROM settings WHERE key='spreadsheet_id')) AS spreadsheet_id,a.sheet_tab FROM projects p JOIN accounts a ON a.project_id=p.id WHERE p.id=? AND a.id=?", old.project_id, old.account_id);
-                    if (target?.spreadsheet_id) statements.push(stmt('INSERT INTO deleted_task_sync(task_id,spreadsheet_id,sheet_tab,updated_at) VALUES(?,?,?,?)', old.id, target.spreadsheet_id, target.sheet_tab || 'Task log', now));
-                    for (const t of linked) statements.push(audit(u, 'time_entries', t.id, 'deleted', t, null));
-                    statements.push(stmt('DELETE FROM time_entries WHERE task_id=?', old.id), stmt('DELETE FROM task_hour_reviews WHERE task_id=?', old.id), stmt('DELETE FROM sync_jobs WHERE task_id=?', old.id));
-                } else if (old.task_id) statements.push(queue(old.task_id));
-                statements.push(stmt(`DELETE FROM ${table} WHERE id=?`, old.id), audit(u, table, old.id, 'deleted', old, null));
+                const old = (await transaction.execute(stmt('SELECT * FROM time_entries WHERE id=?',b.id))).rows[0];
+                if (!old) fail('Entry not found. Refresh the list.',404);
+                if (u.role !== 'ADMIN' && old.user_id !== u.id) fail('You can only delete your own logs.',403);
+                if (old.end_ms === null) fail('Stop linked timers before deleting.',409);
+                const statements = [stmt('DELETE FROM time_entries WHERE id=?',b.id),audit(u,'time_entries',b.id,'deleted',old,null)];
+                if (old.task_id) statements.push(queue(String(old.task_id)));
                 await transaction.batch(statements);
                 await transaction.commit();
-            } catch (error) {
-                await transaction.rollback();
-                throw error;
-            } finally { transaction.close(); }
+            } catch(error) { await transaction.rollback(); throw error; } finally { transaction.close(); }
             await safeSync(3);
-            return json({ saved: true, message: isTask ? 'Task and linked working time deleted.' : 'Time entry deleted.' });
+            return json({saved:true,message:'Time entry deleted.'});
         }
         if (path === 'time' && method === 'POST') {
             const b = z.object({ id: uid.optional(), project_id: uid, task_id: uid.nullable().optional(), start_ms: z.number().int(), end_ms: z.number().int(), notes: z.string().max(2000).default('') }).parse(await req.json());
