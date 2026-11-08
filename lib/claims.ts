@@ -1,3 +1,4 @@
+import {ensureClaimDetailsSchema} from './claim-details-schema.mjs';
 import {z} from 'zod';
 import type {Transaction, InValue} from '@libsql/client';
 import {getClient} from './database';
@@ -59,6 +60,7 @@ async function release(tx:Transaction,p:Pool,actor:string|null,action:string,rea
  await tx.execute(stmt('DELETE FROM sync_jobs WHERE task_id=?',p.task_entry_id));
  await tx.execute(stmt('DELETE FROM task_entries WHERE id=?',p.task_entry_id));
  await tx.execute(stmt('INSERT INTO audit_log(id,actor_id,entity,entity_id,action,before_json,after_json,created_at) VALUES(?,?,?,?,?,?,?,?)',id(),actor,'task_entries',p.task_entry_id,'claim_released',JSON.stringify(task),null,now));
+ await tx.execute(stmt("UPDATE task_pool_details SET extension_status='CLOSED' WHERE pool_id=?",p.id));
  await record(tx,actor,p,action,{status:'AVAILABLE',reason},now);
 }
 /** Called inside the caller's write transaction. Overdue marking happens once. */
@@ -72,12 +74,13 @@ export async function expireOverdueClaims(now:number,tx:Transaction){
 }
 export async function claimsTransaction<T>(work:(tx:Transaction,now:number)=>Promise<T>){
  await ensureClaimsSchema(getClient());
+ await ensureClaimDetailsSchema(getClient());
  const tx=await getClient().transaction('write');
  try{const now=Date.now();await expireOverdueClaims(now,tx);const result=await work(tx,now);await tx.commit();return result;}
  catch(e){await tx.rollback();throw e;}finally{tx.close();}
 }
 export async function claimsSnapshot(tx:Transaction,u:Actor){
- const pool=await rows(tx,`SELECT p.*,(SELECT COUNT(*) FROM task_pool numbered WHERE numbered.account_id=p.account_id AND numbered.rowid<=p.rowid) AS display_number,(SELECT status FROM task_entries t WHERE t.id=p.task_entry_id) AS task_status FROM task_pool p WHERE ${u.role==='ADMIN'?'1=1':`p.claimed_by=? OR (p.status='AVAILABLE' AND EXISTS(SELECT 1 FROM project_task_claiming c WHERE c.project_id=p.project_id AND c.enabled=1) AND EXISTS(SELECT 1 FROM projects x WHERE x.id=p.project_id AND x.status='active') AND EXISTS(SELECT 1 FROM accounts a WHERE a.id=p.account_id AND a.active=1) AND NOT EXISTS(SELECT 1 FROM deleted_records WHERE entity='projects' AND entity_id=p.project_id) AND NOT EXISTS(SELECT 1 FROM deleted_work_accounts WHERE account_id=p.account_id) AND EXISTS(SELECT 1 FROM project_assignments WHERE project_id=p.project_id AND user_id=?) AND EXISTS(SELECT 1 FROM account_assignments WHERE account_id=p.account_id AND user_id=?))`} ORDER BY p.created_at,p.id`,...(u.role==='ADMIN'?[]:[u.id,u.id,u.id]));
+ const pool=await rows(tx,`SELECT p.*,d.english_subtitles,CASE WHEN d.requested_by=p.claimed_by THEN d.extension_hours END AS extension_hours,CASE WHEN d.requested_by=p.claimed_by THEN d.extension_reason END AS extension_reason,CASE WHEN d.requested_by=p.claimed_by THEN d.extension_status END AS extension_status,(SELECT status FROM task_entries t WHERE t.id=p.task_entry_id) AS task_status FROM task_pool p LEFT JOIN task_pool_details d ON d.pool_id=p.id WHERE ${u.role==='ADMIN'?'1=1':`p.claimed_by=? OR (p.status='AVAILABLE' AND EXISTS(SELECT 1 FROM project_task_claiming c WHERE c.project_id=p.project_id AND c.enabled=1) AND EXISTS(SELECT 1 FROM projects x WHERE x.id=p.project_id AND x.status='active') AND EXISTS(SELECT 1 FROM accounts a WHERE a.id=p.account_id AND a.active=1) AND NOT EXISTS(SELECT 1 FROM deleted_records WHERE entity='projects' AND entity_id=p.project_id) AND NOT EXISTS(SELECT 1 FROM deleted_work_accounts WHERE account_id=p.account_id) AND EXISTS(SELECT 1 FROM project_assignments WHERE project_id=p.project_id AND user_id=?) AND EXISTS(SELECT 1 FROM account_assignments WHERE account_id=p.account_id AND user_id=?))`} ORDER BY p.created_at,p.id`,...(u.role==='ADMIN'?[]:[u.id,u.id,u.id]));
  return pool.map(p=>{if(u.role==='ADMIN')return p;const safe={...p};delete safe.created_by;delete safe.expiry_count;return safe;});
 }
 export async function managePool(u:Actor,input:unknown){
@@ -133,6 +136,7 @@ export async function changeClaim(u:Actor,input:unknown,action:'release'|'comple
   if(action==='admin'&&b.hours!==undefined){
    const deadline=Math.max(now,p.deadline_at!)+b.hours*3600000;
    await tx.execute(stmt('UPDATE task_pool SET deadline_at=?,overdue=0,version=version+1 WHERE id=? AND version=?',deadline,p.id,p.version));
+   await tx.execute(stmt("UPDATE task_pool_details SET extension_status='APPROVED' WHERE pool_id=? AND requested_by=? AND extension_status='PENDING'",p.id,p.claimed_by));
    await record(tx,u.id,p,'deadline_extended',{deadline_at:deadline,reason:b.reason},now);return {saved:true};
   }
   if(action==='complete'){
@@ -143,5 +147,39 @@ export async function changeClaim(u:Actor,input:unknown,action:'release'|'comple
   }
   const blocked=await releaseBlock(tx,p,false);if(blocked)fail(blocked,409);
   await release(tx,p,u.id,action==='admin'?'force_released':'released',b.reason??'Voluntary release',now);return {saved:true};
+ });
+}
+
+const detailsInput=z.discriminatedUnion('action',[
+ z.object({...selected,action:z.literal('subtitles'),english_subtitles:z.boolean()}).strict(),
+ z.object({...selected,action:z.literal('request'),hours:z.number().int().min(1).max(720),reason:z.string().trim().min(1).max(2000)}).strict(),
+ z.object({...selected,action:z.enum(['approve','reject'])}).strict()
+]);
+export async function updateClaimDetails(u:Actor,input:unknown){
+ const b=detailsInput.parse(input);
+ return claimsTransaction(async(tx,now)=>{
+  await activeActor(tx,u,b.action!=='request');
+  const p=await first(tx,'SELECT * FROM task_pool WHERE id=?',b.id) as unknown as Pool;
+  if(!p)fail('Task not found.',404);
+  if(p.version!==b.version)fail('Task changed. Refresh and retry.',409);
+  if(b.action==='subtitles'){
+   await tx.execute(stmt('INSERT INTO task_pool_details(pool_id,english_subtitles) VALUES(?,?) ON CONFLICT(pool_id) DO UPDATE SET english_subtitles=excluded.english_subtitles',p.id,b.english_subtitles?1:0));
+  }else{
+   if(p.status!=='CLAIMED')fail('Only active claims can request an extension.',409);
+   const details=await first(tx,'SELECT * FROM task_pool_details WHERE pool_id=?',p.id);
+   if(b.action==='request'){
+    if(u.role!=='EMPLOYEE'||p.claimed_by!==u.id)fail('Only the employee who claimed this task can request an extension.',403);
+    await assigned(tx,u,p);
+    if(details?.extension_status==='PENDING'&&details.requested_by===u.id)fail('An extension request is already pending.',409);
+    await tx.execute(stmt("INSERT INTO task_pool_details(pool_id,extension_hours,extension_reason,extension_status,requested_by) VALUES(?,?,?,'PENDING',?) ON CONFLICT(pool_id) DO UPDATE SET extension_hours=excluded.extension_hours,extension_reason=excluded.extension_reason,extension_status='PENDING',requested_by=excluded.requested_by",p.id,b.hours,b.reason,u.id));
+   }else{
+    if(details?.extension_status!=='PENDING'||details.requested_by!==p.claimed_by)fail('No pending request for this claim.',409);
+    if(b.action==='approve')await tx.execute(stmt('UPDATE task_pool SET deadline_at=?,overdue=0 WHERE id=?',Math.max(now,p.deadline_at!)+Number(details.extension_hours)*3600000,p.id));
+    await tx.execute(stmt('UPDATE task_pool_details SET extension_status=? WHERE pool_id=?',b.action==='approve'?'APPROVED':'REJECTED',p.id));
+   }
+  }
+  await tx.execute(stmt('UPDATE task_pool SET version=version+1 WHERE id=?',p.id));
+  await record(tx,u.id,p,'claim_'+b.action,b,now);
+  return {saved:true};
  });
 }

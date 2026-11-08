@@ -1,5 +1,5 @@
 import {accountCredentials} from './account-credentials';
-import {claimsTransaction,claimsSnapshot,claimProjectFields,managePool,claimTask,changeClaim} from './claims';
+import {claimsTransaction,claimsSnapshot,claimProjectFields,managePool,claimTask,changeClaim,updateClaimDetails} from './claims';
 import {ensureClaimsSchema} from './claims-schema.mjs';
 import { deleteTasks, editTask } from './task-mutations';
 import {recordPresence,presenceList} from './presence';
@@ -236,6 +236,7 @@ export async function handle(req: Request) {
         if (path==='accounts/credentials' && method==='POST') return json(await accountCredentials(u,await req.json()));
         if (path.startsWith('claims/') && method === 'POST') {
             const body=await req.json();
+            if(path==='claims/details')return json(await updateClaimDetails(u,body));
             if(path==='claims/pool')return json(await managePool(u,body));
             if(path==='claims/claim')return json(await claimTask(u,body));
             if(path==='claims/release')return json(await changeClaim(u,body,'release'));

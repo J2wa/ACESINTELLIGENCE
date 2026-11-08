@@ -52,3 +52,4 @@ export const taskPool = sqliteTable('task_pool', {
 },t=>[uniqueIndex('pool_identity').on(t.project_id,t.account_id,t.video_id),index('claim_deadlines').on(t.status,t.overdue,t.deadline_at),index('claim_employee').on(t.project_id,t.claimed_by,t.status)]);
 
 export const workAccountCredentials = sqliteTable('work_account_credentials', { account_id: text('account_id').primaryKey().references(() => accounts.id, { onDelete: 'cascade' }), ciphertext: text('ciphertext').notNull() });
+export const taskPoolDetails = sqliteTable('task_pool_details', { pool_id: text('pool_id').primaryKey(), english_subtitles: integer('english_subtitles'), extension_hours: integer('extension_hours'), extension_reason: text('extension_reason'), extension_status: text('extension_status'), requested_by: text('requested_by').references(() => users.id) });

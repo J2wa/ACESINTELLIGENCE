@@ -14,8 +14,8 @@ export async function accountCredentials(u:{id:string;role:string},value:unknown
   if(b.action==='save'&&u.role!=='ADMIN')fail('Administrator access required.',403);
   await tx.execute(`CREATE TABLE IF NOT EXISTS work_account_credentials(account_id TEXT PRIMARY KEY REFERENCES accounts(id) ON DELETE CASCADE,ciphertext TEXT NOT NULL)`);
   if(b.action==='save'){
-   if(b.username===undefined||b.password===undefined||b.login_url===undefined)fail('Provide all credential fields.');
-   await tx.execute(stmt('INSERT INTO work_account_credentials(account_id,ciphertext) VALUES(?,?) ON CONFLICT(account_id) DO UPDATE SET ciphertext=excluded.ciphertext',b.account_id,encrypt({username:b.username,password:b.password,login_url:b.login_url},b.account_id)));
+   if(b.username===undefined||b.password===undefined)fail('Provide all credential fields.');
+   await tx.execute(stmt('INSERT INTO work_account_credentials(account_id,ciphertext) VALUES(?,?) ON CONFLICT(account_id) DO UPDATE SET ciphertext=excluded.ciphertext',b.account_id,encrypt({username:b.username,password:b.password,login_url:b.login_url??''},b.account_id)));
    return {saved:true};
   }
   const result=await tx.execute(stmt('SELECT ciphertext FROM work_account_credentials WHERE account_id=?',b.account_id));
