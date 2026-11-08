@@ -56,3 +56,11 @@ test('changing linked hours invalidates an approval', async () => {
  assert.equal(taskHours(task,[{...times[0],end_ms:120001}],review).hours_status,'PENDING');
  assert.equal(taskHours(task,[{...times[0],end_ms:null}],review).hours_status,'RUNNING');
 });
+
+test('returned tasks exclude both video and working hours from payroll',async()=>{
+ const {payrollRows}=await import('../lib/core.mjs');
+ const task={id:'returned',date:'2026-11-09',user_id:'u',project_id:'p',status:'RETURNED',hours_status:'APPROVED',duration_seconds:3600,rate_cents:10000};
+ const times=[{id:'time',task_id:task.id,user_id:'u',project_id:'p',pay_basis:'WORKING_HOUR',rate_cents:10000,start_ms:Date.parse('2026-11-09T01:00:00Z'),end_ms:Date.parse('2026-11-09T02:00:00Z')}];
+ assert.deepEqual(payrollRows({tasks:[{...task,pay_basis:'VIDEO_HOUR'}],times,sheets:[]}),[]);
+ assert.deepEqual(payrollRows({tasks:[{...task,pay_basis:'WORKING_HOUR'}],times,sheets:[]}),[]);
+});
