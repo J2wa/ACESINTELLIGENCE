@@ -78,6 +78,13 @@
       "when": 1793686586628,
       "tag": "0010_user_presence",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1794124800000,
+      "tag": "0012_task_claiming",
+      "breakpoints": true
     }
   ]
 }

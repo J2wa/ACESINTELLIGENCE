@@ -1,3 +1,4 @@
+import {ensureClaimsSchema} from './claims-schema.mjs';
 import { getClient } from './database';
 import { authorizeArchivePurge, ensureArchiveExportSchema } from './archive-export';
 import { fail, id } from './auth';
@@ -5,6 +6,7 @@ import { fail, id } from './auth';
 export async function projectArchive(actor: {id:string;role:string}, action:'archive'|'restore'|'empty', ids:string[], receipt?:string) {
     if (actor.role !== 'ADMIN') fail('Admin access required.',403);
     await ensureArchiveExportSchema();
+    await ensureClaimsSchema(getClient());
     const tx = await getClient().transaction('write');
     try {
         if (!ids.length || new Set(ids).size !== ids.length) fail('Choose projects and refresh the archive.',400);
@@ -21,6 +23,10 @@ export async function projectArchive(actor: {id:string;role:string}, action:'arc
         for (const p of records) {
             const projectId = String(p.id);
             if (action === 'empty') {
+                // Explicit archive purge retains claim history before unlinking pooled tasks.
+                const pool=(await tx.execute({sql:'SELECT * FROM task_pool WHERE project_id=?',args:[projectId]})).rows;
+                for(const item of pool) await tx.execute({sql:'INSERT INTO audit_log(id,actor_id,entity,entity_id,action,before_json,after_json,created_at) VALUES(?,?,?,?,?,?,?,?)',args:[id(),actor.id,'task_pool',item.id,'archived_project_purge',JSON.stringify(item),null,Date.now()]});
+                await tx.execute({sql:'DELETE FROM task_pool WHERE project_id=?',args:[projectId]});
                 if (receipt) {
                     const sheets=(await tx.execute({sql:`SELECT s.* FROM timesheets s WHERE s.status IN ('SUBMITTED','APPROVED') AND (EXISTS(SELECT 1 FROM task_entries t WHERE t.project_id=?1 AND t.user_id=s.user_id AND t.date>=s.week_start AND t.date<date(s.week_start,'+7 days')) OR EXISTS(SELECT 1 FROM time_entries t WHERE t.project_id=?1 AND t.user_id=s.user_id AND t.start_ms<s.end_ms AND t.end_ms>s.start_ms))`,args:[projectId]})).rows;
                     for(const sheet of sheets) {

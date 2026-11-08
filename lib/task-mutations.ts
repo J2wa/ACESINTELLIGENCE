@@ -9,6 +9,7 @@ const read = async (tx: Transaction, sql: string, ...args: (string | number)[]) 
 const one = async (tx: Transaction, sql: string, ...args: (string | number)[]) => (await read(tx,sql,...args))[0];
 async function unlocked(tx: Transaction, task: LogRow, user: User, version: number | undefined, deleting: boolean) {
     if (user.role !== 'ADMIN' && task.user_id !== user.id) fail('You can only change your own tasks.',403);
+    if (deleting && await one(tx,'SELECT 1 FROM task_pool WHERE task_entry_id=?',task.id)) fail('Use the claim Release action for pooled tasks.',409);
     if (task.version !== version) fail('This task changed; refresh and retry.',409);
     if ((deleting || user.role !== 'ADMIN') && task.status === 'APPROVED') fail('This task is already approved.',409);
     // Normal deletion has the same safeguards for administrators and employees.

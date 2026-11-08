@@ -40,3 +40,13 @@ export const deletedWorkAccounts = sqliteTable('deleted_work_accounts',{account_
 
 export const userPresence = sqliteTable('user_presence',{user_id:text('user_id').primaryKey().references(()=>users.id,{onDelete:'cascade'}),last_active_at:integer('last_active_at').notNull()});
 export const sessionPresence = sqliteTable('session_presence',{token_hash:text('token_hash').primaryKey().references(()=>sessions.token_hash,{onDelete:'cascade'}),last_active_at:integer('last_active_at').notNull()});
+
+export const projectTaskClaiming = sqliteTable('project_task_claiming', {
+ project_id:text('project_id').primaryKey().references(()=>projects.id,{onDelete:'cascade'}),
+ enabled:integer('enabled').notNull().default(0), deadline_hours:integer('deadline_hours').notNull().default(24), max_active:integer('max_active').notNull().default(1)
+});
+export const taskPool = sqliteTable('task_pool', {
+ id:text('id').primaryKey(),project_id:text('project_id').notNull().references(()=>projects.id,{onDelete:'cascade'}),account_id:text('account_id').notNull().references(()=>accounts.id,{onDelete:'cascade'}),
+ video_id:text('video_id').notNull(),duration_seconds:integer('duration_seconds').notNull().default(0),notes:text('notes').notNull().default(''),status:text('status',{enum:['AVAILABLE','CLAIMED','COMPLETED','CANCELLED']}).notNull().default('AVAILABLE'),
+ claimed_by:text('claimed_by').references(()=>users.id),claimed_at:integer('claimed_at'),deadline_at:integer('deadline_at'),task_entry_id:text('task_entry_id').unique(),version:integer('version').notNull().default(1),overdue:integer('overdue').notNull().default(0),completed_at:integer('completed_at'),expiry_count:integer('expiry_count').notNull().default(0),created_by:text('created_by').notNull().references(()=>users.id),created_at:integer('created_at').notNull()
+},t=>[uniqueIndex('pool_identity').on(t.project_id,t.account_id,t.video_id),index('claim_deadlines').on(t.status,t.overdue,t.deadline_at),index('claim_employee').on(t.project_id,t.claimed_by,t.status)]);
