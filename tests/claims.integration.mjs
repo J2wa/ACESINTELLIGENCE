@@ -38,6 +38,12 @@ try{
  await req('accounts/credentials','v',{action:'read',account_id:'a'},403);
  await sql("INSERT INTO account_assignments VALUES('a','v')");
  const p=await pool('000001');
+ assert.equal((await req('workspace')).task_pool.find(x=>x.id===p.id).display_number,1);
+ const numberedSecond=await pool('NUMBER-TWO');
+ const separateAccount=await pool('NUMBER-ONE-B','b');
+ const numberedView=await req('workspace');
+ assert.equal(numberedView.task_pool.find(x=>x.id===numberedSecond.id).display_number,2);
+ assert.equal(numberedView.task_pool.find(x=>x.id===separateAccount.id).display_number,1);
  await req('claims/claim','u',{id:p.id,version:1},403); // off by default
  await req('projects','admin',settings);
  for(const patch of [{claim_deadline_hours:0},{claim_deadline_hours:721},{claim_deadline_hours:1.2},{claim_max_active:0}])await req('projects','admin',{...settings,...patch},400);
@@ -52,7 +58,7 @@ try{
  assert.equal(c.deadline_at,now+24*3600000);assert.equal(day(c.deadline_at),'2026-11-16');
  const task=await one('SELECT * FROM task_entries WHERE id=?',c.task_entry_id);assert.equal(task.video_id,'000001');assert.equal(task.rate_cents,12000);assert.equal(task.date,'2026-11-15');assert.equal(task.duration_seconds,180);assert(await one('SELECT 1 FROM sync_jobs WHERE task_id=?',task.id));
  await req('claims/claim',other,{id:c.id,version:1},409);
- const privateView=await req('workspace',other);assert(!privateView.task_pool.some(x=>x.id===c.id));assert(!JSON.stringify(privateView).includes('profit_rows'));assert(privateView.tasks.every(t=>t.user_id===other));
+ const privateView=await req('workspace',other);assert.equal(privateView.task_pool.find(x=>x.id===numberedSecond.id).display_number,2);assert(!privateView.task_pool.some(x=>x.id===c.id));assert(!JSON.stringify(privateView).includes('profit_rows'));assert(privateView.tasks.every(t=>t.user_id===other));
  await req('claims/release',other,{id:c.id,version:c.version},404);
  await req('claims/admin',other,{id:c.id,version:c.version,action:'extend',hours:1,reason:'no'},403);
  await req('claims/admin','admin',{id:c.id,version:c.version,action:'extend',hours:1,reason:''},400);
