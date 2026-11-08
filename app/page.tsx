@@ -250,6 +250,7 @@ export default function Workhub() {
         throw Object.assign(new Error(j.error), j);
     } await reload(); return j; }
     function demoMutate(path: string, b: Row) {
+        if (path.startsWith('claims/')) throw new Error('Task claiming is available in the live workspace. Sign in to your employee account to claim tasks.');
         const d = structuredClone(data!), id = b.id ?? newId(), stamp = Date.now();
         let warning = null;
         const put = (key: string, row: Row) => { d[key] = [row, ...d[key].filter((r: Row) => r.id !== row.id)]; };
