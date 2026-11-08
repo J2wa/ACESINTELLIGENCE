@@ -40,3 +40,9 @@ export const deletedWorkAccounts = sqliteTable('deleted_work_accounts',{account_
 
 export const userPresence = sqliteTable('user_presence',{user_id:text('user_id').primaryKey().references(()=>users.id,{onDelete:'cascade'}),last_active_at:integer('last_active_at').notNull()});
 export const sessionPresence = sqliteTable('session_presence',{token_hash:text('token_hash').primaryKey().references(()=>sessions.token_hash,{onDelete:'cascade'}),last_active_at:integer('last_active_at').notNull()});
+
+// URL identity is separate from business records, following project_links.
+export const projectUrls = sqliteTable('project_urls',{project_id:text('project_id').primaryKey().references(()=>projects.id,{onDelete:'cascade'}),slug:text('slug').notNull().unique()});
+export const projectSlugHistory = sqliteTable('project_slug_history',{slug:text('slug').primaryKey(),project_id:text('project_id').notNull().references(()=>projects.id,{onDelete:'cascade'})});
+export const employeeUrls = sqliteTable('employee_urls',{user_id:text('user_id').primaryKey().references(()=>users.id,{onDelete:'cascade'}),slug:text('slug').notNull().unique()});
+export const accountUrls = sqliteTable('account_urls',{account_id:text('account_id').primaryKey().references(()=>accounts.id,{onDelete:'cascade'}),slug:text('slug').notNull().unique()});

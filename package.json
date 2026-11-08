@@ -17,7 +17,8 @@
     "test:integration": "node --import tsx tests/integration.mjs",
     "db:migrate": "node --env-file-if-exists=.env.local scripts/migrate.mjs",
     "test:sheets": "node --import tsx tests/sheets.integration.mjs",
-    "test:payroll": "node --import tsx tests/payroll.integration.mjs"
+    "test:payroll": "node --import tsx tests/payroll.integration.mjs",
+    "test:routes": "node --import tsx tests/routes.integration.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

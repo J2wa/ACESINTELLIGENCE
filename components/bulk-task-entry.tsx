@@ -1,4 +1,5 @@
 'use client';
+import type {Row} from './workhub-shell';
 import LoadingStatus from './loading-status';
 import { useRef, useState, type ClipboardEvent, type FormEvent } from 'react';
 import { Upload, Plus, Trash2, X, AlertCircle, FileSpreadsheet } from 'lucide-react';
@@ -12,9 +13,9 @@ type Column = typeof BULK_COLUMNS[number];
 type Errors = Record<number, Record<string, string>>;
 const columnLabels: Record<string, string> = {date: 'Date · Manila', video_id: 'Task ID', duration: 'Video duration', minutes: 'Working minutes', status: 'Task status', notes: 'Notes'};
 
-export default function BulkTaskEntry({ projects, accounts, isAdmin, annotator, userId, employees, onClose, onSaved }: {
+export default function BulkTaskEntry({ projects, accounts, isAdmin, annotator, userId, employees, onClose, onSaved, onOpenTask }: {
     projects: Option[]; accounts: Account[]; isAdmin: boolean; annotator: string; userId: string; employees: Option[];
-    onClose: () => void; onSaved: (message: string) => void;
+    onOpenTask: (task:Row)=>void; onClose: () => void; onSaved: (message: string) => void;
 }) {
     const nextKey = useRef(5);
     const submitting = useRef(false);
@@ -28,6 +29,7 @@ export default function BulkTaskEntry({ projects, accounts, isAdmin, annotator, 
     const [errors, setErrors] = useState<Errors>({});
     const [error, setError] = useState('');
     const [duplicates,setDuplicates]=useState<any[]>([]);
+    const [saved,setSaved]=useState<Row[]>([]);
     const [busy, setBusy] = useState(false);
     const choices = accounts.filter(account => account.project_id === projectId);
     const entered = rows.filter(hasBulkContent);
@@ -81,6 +83,7 @@ export default function BulkTaskEntry({ projects, accounts, isAdmin, annotator, 
                 }));
                 return;
             }
+            setSaved(result.tasks??[]);
             onSaved(result.message + (result.warning ? ' ' + result.warning : ''));
         } catch { setError('Could not confirm the upload. Check your connection and refresh the task list before retrying.'); }
         finally { submitting.current = false; setBusy(false); }
@@ -95,6 +98,7 @@ export default function BulkTaskEntry({ projects, accounts, isAdmin, annotator, 
             setRows(old=>old.filter(r=>r.key!==row.key));setDuplicates([]);setError('Existing entry updated. Upload the remaining rows when ready.');
         }catch(e){setError((e as Error).message);}finally{setBusy(false);}
     }
+    if(saved.length)return <div className="modal-backdrop"><section className="modal" role="dialog" aria-modal="true" aria-label="Uploaded tasks"><div className="modal-body"><h2>Tasks uploaded</h2><p>Select a task to open its page.</p>{saved.map(t=><p key={t.id}><button className="text-button" onClick={()=>onOpenTask(t)}>{t.video_id}</button></p>)}<button className="button" onClick={onClose}>Done</button></div></section></div>;
     return <div className="modal-backdrop"><section className="modal bulk-task-modal" role="dialog" aria-modal="true" aria-labelledby="bulk-task-title" aria-describedby="bulk-task-help" onKeyDown={event => { if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); if (!busy) onClose(); } }}>
         <div className="modal-heading"><div><span className="eyebrow">ACES INTELLIGENCE WORKHUB</span><h2 id="bulk-task-title">Mass upload tasks</h2></div><button className="icon-button" disabled={busy} aria-label="Close bulk task entry" onClick={onClose}><X size={21}/></button></div>
         <form onSubmit={submit} noValidate><div className="modal-body">
@@ -103,7 +107,7 @@ export default function BulkTaskEntry({ projects, accounts, isAdmin, annotator, 
             {!choices.length && <div className="notice"><AlertCircle size={16}/>No active work accounts are available for this project. Ask your coordinator to assign one.</div>}
             <div className="bulk-task-hint"><FileSpreadsheet size={17}/><span>Paste in this order: {labels.join(', ')}. IDs keep their leading zeroes.</span></div>
             {error && <div className="error-inline" role="alert"><AlertCircle size={16}/>{error}</div>}
-            {duplicates.length>0&&<section className="duplicate-review"><h3>Duplicate entry map</h3><p>No rows from this upload were saved. Review each match; updating preserves its employee and existing working time.</p>{duplicates.map(match=><div key={match.row}><b>Row {rows.findIndex(r=>r.key===entered[match.row-1]?.key)+1}: {match.video_id}</b>{match.existing?<><p>Existing: {match.existing.date} · {employees.find(e=>e.id===match.existing.user_id)?.name??annotator} · {match.existing.status}</p><button type="button" className="button" disabled={busy} onClick={()=>updateDuplicate(match)}>Update existing entry with this row</button></>:<p>This task belongs to another employee. Ask an administrator to review it.</p>}</div>)}</section>}
+            {duplicates.length>0&&<section className="duplicate-review"><h3>Duplicate entry map</h3><p>No rows from this upload were saved. Review each match; updating preserves its employee and existing working time.</p>{duplicates.map(match=><div key={match.row}><b>Row {rows.findIndex(r=>r.key===entered[match.row-1]?.key)+1}: {match.video_id}</b>{match.existing?<><p>Existing: {match.existing.date} · {employees.find(e=>e.id===match.existing.user_id)?.name??annotator} · {match.existing.status}</p><button type="button" className="button" disabled={busy} onClick={()=>onOpenTask(match.existing)}>Open task</button><button type="button" className="button" disabled={busy} onClick={()=>updateDuplicate(match)}>Update existing entry with this row</button></>:<p>This task belongs to another employee. Ask an administrator to review it.</p>}</div>)}</section>}
             <fieldset disabled={busy} className="bulk-task-fields"><legend className="sr-only">Task details</legend><div className="table-scroll bulk-task-scroll"><table className="bulk-task-table"><thead><tr><th scope="col">#</th>{labels.map((label, index) => <th scope="col" key={label}>{label}{['date','video_id','duration','status'].includes(columns[index]) || (columns[index] === 'minutes' && basis === 'WORKING_HOUR') ? ' *' : ''}{columns[index] === 'duration' && <small className="cell-sub">h:mm:ss</small>}</th>)}<th scope="col"><span className="sr-only">Remove</span></th></tr></thead><tbody>{rows.map((row, index) => <tr key={row.key}><th scope="row">{index + 1}</th>{columns.map((column, columnIndex) => {
                 const issue = errors[index]?.[column], label = `Row ${index + 1} ${labels[columnIndex]}`, errorId = `bulk-error-${row.key}-${column}`;
                 return <td key={column}><div className="bulk-task-cell">{column === 'status' ? <select aria-label={label} aria-invalid={!!issue} aria-describedby={issue ? errorId : undefined} value={row.status} onChange={event => update(index, column, event.target.value)} onPaste={event => paste(event, index, columnIndex)}>{!statuses.includes(row.status) && <option value={row.status}>{row.status || 'Select status'}</option>}{statuses.map(status => <option key={status} value={status}>{status}</option>)}</select> : column === 'notes' ? <textarea aria-label={label} aria-invalid={!!issue} aria-describedby={issue ? errorId : undefined} rows={1} maxLength={5000} value={row.notes} onChange={event => update(index, column, event.target.value)} onPaste={event => paste(event, index, columnIndex)}/> : <input aria-label={label} aria-invalid={!!issue} aria-describedby={issue ? errorId : undefined} type={column === 'date' ? 'date' : column === 'minutes' ? 'number' : 'text'} min={column === 'minutes' ? 0 : undefined} max={column === 'minutes' ? 1440 : undefined} step={column === 'minutes' ? 1 : undefined} maxLength={column === 'video_id' ? 250 : undefined} placeholder={column === 'video_id' ? '0005724' : column === 'duration' ? '0:04:32' : column === 'minutes' ? '0' : undefined} value={String(row[column as keyof TaskRow])} autoComplete="off" onChange={event => update(index, column, event.target.value)} onPaste={event => paste(event, index, columnIndex)}/>}{issue && <small id={errorId} className="bulk-task-error">{issue}</small>}</div></td>;
