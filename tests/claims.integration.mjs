@@ -72,6 +72,16 @@ try{
  await req('claims/details','admin',{...await selected(detailPool),action:'reject'});
  assert.equal((await one('SELECT * FROM task_pool WHERE id=?',detailPool.id)).deadline_at,deadlineBefore+7200000);
  await req('claims/complete','u',await selected(detailPool));
+ const removable=await pool('DELETE-POOL');
+ await req('claims/pool','u',{action:'delete',...await selected(removable)},403);
+ await req('claims/pool','admin',{action:'delete',...await selected(removable)});
+ assert(!await one('SELECT 1 FROM task_pool WHERE id=?',removable.id));
+ const protectedPool=await claim(await pool('PROTECTED-DELETE'));
+ await req('claims/pool','admin',{action:'delete',...await selected(protectedPool)},409);
+ await req('claims/release','u',await selected(protectedPool));
+ await req('claims/pool','admin',{action:'delete',...await selected(protectedPool)});
+ await req('claims/pool','admin',{action:'add',project_id:'p',account_id:'a',items:[{video_id:'TABLE-SUBTITLES',duration_seconds:90,english_subtitles:true}]});
+ const tableItem=(await req('workspace')).task_pool.find(x=>x.video_id==='TABLE-SUBTITLES');assert.equal(tableItem.english_subtitles,1);assert.equal(tableItem.duration_seconds,90);
  // Concurrent requests compete for one conditional update in serialized write transactions.
  const race=await Promise.all(['u','v'].map(async who=>{const r=await handle(new Request('https://test/api/claims/claim',{method:'POST',headers:{Origin:'https://test',Cookie:'aces_session='+who,'Content-Type':'application/json'},body:JSON.stringify({id:p.id,version:1})}));return {status:r.status,body:await r.json()};}));
  assert.deepEqual(race.map(r=>r.status).sort(),[200,409]);assert.equal(Number((await one('SELECT COUNT(*) n FROM task_entries WHERE video_id=?','000001')).n),1);checks++;

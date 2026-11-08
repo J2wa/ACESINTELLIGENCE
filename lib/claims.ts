@@ -12,8 +12,8 @@ const uid=z.string().min(1).max(100), selected={id:uid,version:z.number().int().
 export const claimProjectFields={claiming_enabled:z.number().int().min(0).max(1).optional(),claim_deadline_hours:z.number().int().min(1).max(720).optional(),claim_max_active:z.number().int().min(1).max(1000).optional()};
 export const claimInput=z.object(selected).strict();
 export const poolInput=z.discriminatedUnion('action',[
- z.object({action:z.literal('add'),project_id:uid,account_id:uid,items:z.array(z.object({video_id:z.string().min(1).max(250).refine(v=>!!v.trim(),'Task ID is required.'),duration_seconds:z.number().int().min(0).max(359999999).default(0),notes:z.string().max(5000).default('')}).strict()).min(1).max(100)}).strict(),
- z.object({action:z.literal('cancel'),...selected}).strict()
+ z.object({action:z.literal('add'),project_id:uid,account_id:uid,items:z.array(z.object({video_id:z.string().min(1).max(250).refine(v=>!!v.trim(),'Task ID is required.'),duration_seconds:z.number().int().min(0).max(359999999).default(0),notes:z.string().max(5000).default(''),english_subtitles:z.boolean().optional()}).strict()).min(1).max(100)}).strict(),
+ z.object({action:z.enum(['cancel','delete']),...selected}).strict()
 ]);
 export const adminClaimInput=z.discriminatedUnion('action',[
  z.object({action:z.literal('release'),...selected,reason:z.string().trim().min(1).max(2000)}).strict(),
@@ -92,12 +92,14 @@ export async function managePool(u:Actor,input:unknown){
    for(const item of b.items){
     const p={...item,id:id(),project_id:b.project_id,account_id:b.account_id};
     await tx.execute(stmt('INSERT INTO task_pool(id,project_id,account_id,video_id,duration_seconds,notes,created_by,created_at) VALUES(?,?,?,?,?,?,?,?)',p.id,p.project_id,p.account_id,p.video_id,p.duration_seconds,p.notes,u.id,now));
+    if(item.english_subtitles!==undefined)await tx.execute(stmt('INSERT INTO task_pool_details(pool_id,english_subtitles) VALUES(?,?)',p.id,item.english_subtitles?1:0));
     await record(tx,u.id,p as Pool,'pool_added',{status:'AVAILABLE'},now);
    }
    return {saved:true,count:b.items.length};
   }
   const p=await first(tx,'SELECT * FROM task_pool WHERE id=?',b.id) as unknown as Pool;
   if(!p)fail('Pool item not found.',404);
+  if(b.action==='delete'){if(p.version!==b.version||!['AVAILABLE','CANCELLED'].includes(p.status)||p.task_entry_id)fail('Release the claim before deleting this pool entry.',409);await record(tx,u.id,p,'permanently_deleted',null,now);await tx.execute(stmt('DELETE FROM task_pool_details WHERE pool_id=?',p.id));await tx.execute(stmt('DELETE FROM task_pool WHERE id=?',p.id));return {saved:true};}
   if(p.status!=='AVAILABLE'||p.version!==b.version)fail('Pool item changed. Refresh and retry.',409);
   await tx.execute(stmt("UPDATE task_pool SET status='CANCELLED',version=version+1 WHERE id=? AND version=?",p.id,p.version));
   await record(tx,u.id,p,'cancelled',{status:'CANCELLED'},now);return {saved:true};
