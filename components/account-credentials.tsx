@@ -1,0 +1,13 @@
+'use client';
+import {useState} from 'react';
+import {KeyRound,Eye,EyeOff,ExternalLink} from 'lucide-react';
+export default function AccountCredentials({accountId,isAdmin}:{accountId:string;isAdmin:boolean}){
+ const [open,setOpen]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState(''),[visible,setVisible]=useState(false),[saved,setSaved]=useState(false);
+ const [value,setValue]=useState({username:'',password:'',login_url:''});
+ async function request(action:'read'|'save'){
+  setBusy(true);setError('');setSaved(false);
+  try{const r=await fetch('/api/accounts/credentials',{method:'POST',headers:{'Content-Type':'application/json'},cache:'no-store',body:JSON.stringify({account_id:accountId,action,...(action==='save'?value:{})})});const j=await r.json();if(!r.ok)throw new Error(j.error||'Unable to load account credentials.');if(action==='read')setValue(j);else setSaved(true);}catch(e){setError((e as Error).message);}finally{setBusy(false);}
+ }
+ function toggle(){if(open){setOpen(false);setValue({username:'',password:'',login_url:''});setVisible(false);}else{setOpen(true);void request('read');}}
+ return <div className="task-credentials"><button type="button" className="button" aria-expanded={open} onClick={toggle}><KeyRound size={15}/>Account credentials</button>{open&&<div className="credentials-body"><p>External working-site login for this work account. This is separate from your Workzone sign-in.</p>{busy&&<p role="status">Loading…</p>}{error&&<p role="alert">{error}</p>}{!busy&&!error&&<><label className="field">Working-site login URL<input type="url" readOnly={!isAdmin} value={value.login_url} onChange={e=>setValue({...value,login_url:e.target.value})}/></label><label className="field">Website username / email<input autoComplete="off" readOnly={!isAdmin} value={value.username} onChange={e=>setValue({...value,username:e.target.value})}/></label><label className="field">Website password<input autoComplete="new-password" type={visible?'text':'password'} readOnly={!isAdmin} value={value.password} onChange={e=>setValue({...value,password:e.target.value})}/></label><button type="button" className="button" onClick={()=>setVisible(!visible)}>{visible?<EyeOff size={14}/>:<Eye size={14}/>} {visible?'Hide password':'Show password'}</button>{value.login_url.startsWith('https://')&&<a className="button" href={value.login_url} target="_blank" rel="noopener noreferrer"><ExternalLink size={14}/>Open working site</a>}{isAdmin&&<button type="button" className="button primary" onClick={()=>void request('save')}>Save credentials</button>}{!isAdmin&&!value.username&&!value.password&&<p>No credentials added yet. Ask your administrator.</p>}{saved&&<p role="status">Credentials saved.</p>}</>}</div>}</div>;
+}

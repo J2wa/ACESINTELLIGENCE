@@ -1,3 +1,4 @@
+import {accountCredentials} from './account-credentials';
 import {claimsTransaction,claimsSnapshot,claimProjectFields,managePool,claimTask,changeClaim} from './claims';
 import {ensureClaimsSchema} from './claims-schema.mjs';
 import { deleteTasks, editTask } from './task-mutations';
@@ -232,6 +233,7 @@ export async function handle(req: Request) {
             }
             return json(invoice);
         }
+        if (path==='accounts/credentials' && method==='POST') return json(await accountCredentials(u,await req.json()));
         if (path.startsWith('claims/') && method === 'POST') {
             const body=await req.json();
             if(path==='claims/pool')return json(await managePool(u,body));

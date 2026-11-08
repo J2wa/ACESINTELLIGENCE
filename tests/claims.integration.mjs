@@ -3,6 +3,7 @@ import {readFileSync,readdirSync,mkdtempSync,rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';import {join} from 'node:path';
 import {day,midnight} from '../lib/core.mjs';
 import {CLAIMS_SCHEMA,ensureClaimsSchema} from '../lib/claims-schema.mjs';
+process.env.WORK_ACCOUNT_CREDENTIALS_KEY='11'.repeat(32);
 const dir=mkdtempSync(join(tmpdir(),'workhub-claims-'));process.env.TURSO_DATABASE_URL='file:'+join(dir,'db.sqlite');delete process.env.TURSO_AUTH_TOKEN;delete process.env.ADMIN_EMAIL;delete process.env.ADMIN_PASSWORD_HASH;delete process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
 const {getClient}=await import('../lib/database.ts'),db=getClient();const {handle}=await import('../lib/api.ts');const {sha}=await import('../lib/auth.ts');const {expireOverdueClaims}=await import('../lib/claims.ts');
 let now=Date.parse('2026-11-15T15:30:00Z');const realNow=Date.now;Date.now=()=>now;let checks=0;
@@ -26,6 +27,16 @@ try{
  for(const u of ['u','v','inactive']){await sql('INSERT INTO project_assignments VALUES(?,?)','p',u);for(const a of ['a','b'])await sql('INSERT INTO account_assignments VALUES(?,?)',a,u);}
  await req('workspace');
  const settings={id:'p',name:'Claim QA',status:'active',pay_basis:'VIDEO_HOUR',rate_cents:12000,spreadsheet_id:'sandbox-sheet',hourly_target:40,employee_ids:['u','v','inactive'],claiming_enabled:1,claim_deadline_hours:24,claim_max_active:100};
+ await req('accounts/credentials','admin',{action:'save',account_id:'a',username:'work-login',password:'test-only-password',login_url:'https://work.example.test'});
+ assert(!JSON.stringify(await sql('SELECT * FROM work_account_credentials')).includes('test-only-password'));
+ const creds=await req('accounts/credentials','u',{action:'read',account_id:'a'});assert.equal(creds.username,'work-login');assert.equal(creds.password,'test-only-password');
+ await req('accounts/credentials','outsider',{action:'read',account_id:'a'},403);
+ await req('accounts/credentials','u',{action:'save',account_id:'a',username:'x',password:'x',login_url:''},403);
+ await req('accounts/credentials','admin',{action:'save',account_id:'a',username:'x',password:'x',login_url:'javascript:alert(1)'},400);
+ assert(!JSON.stringify(await req('workspace','u')).includes('test-only-password'));
+ await sql("DELETE FROM account_assignments WHERE user_id='v' AND account_id='a'");
+ await req('accounts/credentials','v',{action:'read',account_id:'a'},403);
+ await sql("INSERT INTO account_assignments VALUES('a','v')");
  const p=await pool('000001');
  await req('claims/claim','u',{id:p.id,version:1},403); // off by default
  await req('projects','admin',settings);
