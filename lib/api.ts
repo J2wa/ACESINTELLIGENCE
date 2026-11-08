@@ -1,6 +1,3 @@
-import {ensureRoutingSchema} from './routing-schema.mjs';
-import {slugify,uniqueSlug,validProjectSlug,RESERVED} from './workspace-routes.mjs';
-import {routeIdentity} from './workspace-route-server';
 import { deleteTasks, editTask } from './task-mutations';
 import {recordPresence,presenceList} from './presence';
 import { ensureWorkAccountDeletion, changeWorkAccountDeletion } from './work-account-deletion';
@@ -19,7 +16,7 @@ import { ensureTimerSchema } from './timer-schema.mjs';
 import { ensureLogSchema } from './log-schema';
 import { syncTasks } from './sheets';
 import { ensurePayrollSchema, paymentPreview, recordPayment, invoiceDetail } from './payroll';
-const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', 'X-Robots-Tag':'noindex, nofollow' } });
+const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' } });
 const name = z.string().trim().min(1).max(150), password = z.string().min(12, 'Use at least 12 characters.').max(128), uid = z.string().min(1).max(100), date = z.string().refine(v => { try {
     midnight(v);
     return true;
@@ -60,22 +57,17 @@ async function dailyWarning(user: string, start: number, end: number) { for (con
         return 'You have logged more than 12 hours in a Manila day. Please review your entries.';
 } return null; }
 async function snapshot(u: any) {
-    await ensureRoutingSchema(getClient());
     const where = u.role === 'ADMIN' ? '' : ' WHERE t.user_id=?', args = u.role === 'ADMIN' ? [] : [u.id];
     const result = {
         user: u, users: await all('SELECT id,name,email,role,active,(SELECT deleted_at FROM deleted_records WHERE entity=\'users\' AND entity_id=users.id) AS deleted_at FROM users' + (u.role === 'ADMIN' ? '' : ' WHERE id=?'), ...args),
         projects: await all('SELECT p.*,(SELECT deleted_at FROM deleted_records WHERE entity=\'projects\' AND entity_id=p.id) AS deleted_at,COALESCE(s.enabled,0) AS time_tracking_enabled,COALESCE(l.work_enabled,0) AS work_enabled,COALESCE(l.work_url,\'\') AS work_url,COALESCE(l.assistant_enabled,0) AS assistant_enabled,COALESCE(l.assistant_url,\'\') AS assistant_url FROM projects p LEFT JOIN project_time_tracking s ON s.project_id=p.id LEFT JOIN project_links l ON l.project_id=p.id' + (u.role === 'ADMIN' ? '' : ' WHERE p.id IN (SELECT project_id FROM project_assignments WHERE user_id=?)'), ...args),
-        accounts: await all('SELECT accounts.*,(SELECT deleted_at FROM deleted_work_accounts WHERE account_id=accounts.id) AS deleted_at FROM accounts' + (u.role === 'ADMIN' ? '' : ' WHERE id IN (SELECT account_id FROM account_assignments WHERE user_id=?) OR id IN (SELECT account_id FROM task_entries WHERE user_id=?)'), ...args, ...args),
+        accounts: await all('SELECT accounts.*,(SELECT deleted_at FROM deleted_work_accounts WHERE account_id=accounts.id) AS deleted_at FROM accounts' + (u.role === 'ADMIN' ? '' : ' WHERE id IN (SELECT account_id FROM account_assignments WHERE user_id=?)'), ...args),
         assignments: await all('SELECT * FROM project_assignments' + (u.role === 'ADMIN' ? '' : ' WHERE user_id=?'), ...args), account_assignments: await all('SELECT * FROM account_assignments' + (u.role === 'ADMIN' ? '' : ' WHERE user_id=?'), ...args),
         tasks: await all('SELECT t.*,EXISTS(SELECT 1 FROM payment_invoice_items i WHERE i.task_id=t.id OR i.time_entry_id IN (SELECT id FROM time_entries WHERE task_id=t.id)) AS invoice_locked,EXISTS(SELECT 1 FROM task_hour_reviews r WHERE r.task_id=t.id AND r.status=\'APPROVED\') AS review_approved,EXISTS(SELECT 1 FROM deleted_task_sync d WHERE d.task_id=t.id) AS removal_pending,(SELECT invoice_id FROM payment_tasks WHERE task_id=t.id) AS paid_invoice_id,(SELECT COALESCE(SUM((end_ms-start_ms)/1000),0) FROM time_entries WHERE task_id=t.id AND end_ms IS NOT NULL) AS spent_seconds FROM task_entries t' + where + ' ORDER BY date DESC,created_at DESC', ...args),
         times: await all('SELECT t.*,(SELECT invoice_id FROM payment_times WHERE time_entry_id=t.id) AS paid_invoice_id FROM time_entries t' + where + ' ORDER BY start_ms DESC', ...args), sheets: await all('SELECT t.* FROM timesheets t' + where + ' ORDER BY week_start DESC', ...args),
         invoices: await all('SELECT t.*,(SELECT deleted_at FROM deleted_records WHERE entity=\'invoices\' AND entity_id=t.id) AS deleted_at FROM payment_invoices t' + where + ' ORDER BY paid_at DESC,number DESC', ...args), invoice_items: await all('SELECT t.* FROM payment_invoice_items t' + where, ...args),
         sync: u.role === 'ADMIN' ? await all("SELECT task_id,status,last_error,updated_at FROM sync_jobs UNION ALL SELECT task_id,CASE WHEN last_error IS NULL THEN 'pending' ELSE 'error' END,last_error,updated_at FROM deleted_task_sync") : [], settings: u.role === 'ADMIN' ? { spreadsheet_id: (await one("SELECT value FROM settings WHERE key='spreadsheet_id'"))?.value ?? '', google_configured: false, sheets_configured: !!config('GOOGLE_SERVICE_ACCOUNT_JSON'), google_only: false } : {}
     };
-    const projectUrls=await all('SELECT * FROM project_urls'), aliases=await all('SELECT * FROM project_slug_history'), employeeUrls=await all('SELECT * FROM employee_urls'), accountUrls=await all('SELECT * FROM account_urls');
-    result.projects=result.projects.map(p=>({...p,slug:projectUrls.find(r=>r.project_id===p.id)?.slug,slug_aliases:aliases.filter(r=>r.project_id===p.id).map(r=>r.slug)}));
-    result.users=result.users.map(p=>({...p,slug:employeeUrls.find(r=>r.user_id===p.id)?.slug}));
-    result.accounts=result.accounts.map(p=>({...p,slug:accountUrls.find(r=>r.account_id===p.id)?.slug}));
     const reviews = await all('SELECT r.* FROM task_hour_reviews r JOIN task_entries t ON t.id=r.task_id' + (u.role === 'ADMIN' ? '' : ' WHERE t.user_id=?'), ...args);
     result.tasks = result.tasks.map((t: any) => taskHours(t, result.times, reviews.find((r: any) => r.task_id === t.id), result.sheets));
     if (u.role === 'ADMIN') {
@@ -166,7 +158,6 @@ export async function handle(req: Request) {
             return new Response(null, { status: 302, headers: response.headers });
         }
         const u = await session(req, !['sync','presence','admin/presence'].includes(path) && !(path === 'workspace' && new URL(req.url).searchParams.get('background') === '1'));
-        if (!u && path==='resolve') fail('Not found.',404);
         if (!u)
             fail('Your session has expired. Please sign in.', 401);
         await ensurePayrollSchema();
@@ -200,10 +191,6 @@ export async function handle(req: Request) {
                 fail('Current password is incorrect.', 403);
             await DB().batch([stmt('UPDATE users SET password_hash=? WHERE id=?', await hashPassword(b.password), u.id), stmt('DELETE FROM sessions WHERE user_id=?', u.id), audit(u, 'users', u.id, 'password_changed', null, null)]);
             return loginResponse(req, u);
-        }
-        if(path==='resolve' && method==='GET') {
-            const q=new URL(req.url).searchParams; const result=await routeIdentity(u,{project:q.get('project'),employee:q.get('employee')||undefined,task:q.has('task')?q.get('task'):undefined,account:q.get('account')||''});
-            if(!result)fail('Not found.',404); return json(result);
         }
         if (path === 'workspace' && method === 'GET')
             return json(await snapshot(u));
@@ -316,7 +303,7 @@ export async function handle(req: Request) {
             await DB().batch(statements);
             await safeSync(3);
             const longDay = [...dayTimes].some(([key, entries]) => { const date = JSON.parse(key)[1]; return entries.reduce((sum, entry) => sum + Math.max(0, Math.min(entry.end_ms ?? now, midnight(date) + 86400000) - Math.max(entry.start_ms, midnight(date))), 0) > 43200000; });
-            return json({ saved: true, tasks: await all('SELECT id,project_id,user_id,account_id,video_id FROM task_entries WHERE '+rows.map(()=>'(project_id=? AND account_id=? AND video_id=?)').join(' OR '),...rows.flatMap(row=>[row.project_id,row.account_id,row.video_id])), count: rows.length, message: `${rows.length} task${rows.length === 1 ? '' : 's'} uploaded.`, warning: longDay ? 'More than 12 hours are logged in a Manila day. Please review your entries.' : null });
+            return json({ saved: true, count: rows.length, message: `${rows.length} task${rows.length === 1 ? '' : 's'} uploaded.`, warning: longDay ? 'More than 12 hours are logged in a Manila day. Please review your entries.' : null });
         }
         if (path === 'task-status' && method === 'POST') {
             admin(u);
@@ -488,31 +475,18 @@ export async function handle(req: Request) {
         }
         if (path === 'projects' && method === 'POST') {
             admin(u);
-            const b = z.object({ ...projectLinkFields, slug:z.string().optional(), id: uid.optional(), time_tracking_enabled: z.number().int().min(0).max(1).optional(), name, description: z.string().max(3000).default(''), status: z.enum(['active', 'archived']), pay_basis: z.enum(['TASK','VIDEO_HOUR','WORKING_HOUR']).default('WORKING_HOUR'), spreadsheet_id: z.string().regex(/^[a-zA-Z0-9_-]*$/).max(200).default(''), hourly_target: z.number().int().min(0).max(10000).nullable(), rate_cents: z.number().int().min(0).max(10000000), client_rate_cents:z.number().int().min(0).max(10000000).nullable().optional(), color: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#647c45'), employee_ids: z.array(uid) }).parse(await req.json());
+            const b = z.object({ ...projectLinkFields, id: uid.optional(), time_tracking_enabled: z.number().int().min(0).max(1).optional(), name, description: z.string().max(3000).default(''), status: z.enum(['active', 'archived']), pay_basis: z.enum(['TASK','VIDEO_HOUR','WORKING_HOUR']).default('WORKING_HOUR'), spreadsheet_id: z.string().regex(/^[a-zA-Z0-9_-]*$/).max(200).default(''), hourly_target: z.number().int().min(0).max(10000).nullable(), rate_cents: z.number().int().min(0).max(10000000), client_rate_cents:z.number().int().min(0).max(10000000).nullable().optional(), color: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#647c45'), employee_ids: z.array(uid) }).parse(await req.json());
             const eid = b.id ?? id(), old = await one('SELECT p.*,COALESCE(s.enabled,0) AS time_tracking_enabled,COALESCE(l.work_enabled,0) AS work_enabled,COALESCE(l.work_url,\'\') AS work_url,COALESCE(l.assistant_enabled,0) AS assistant_enabled,COALESCE(l.assistant_url,\'\') AS assistant_url FROM projects p LEFT JOIN project_time_tracking s ON s.project_id=p.id LEFT JOIN project_links l ON l.project_id=p.id WHERE p.id=?', eid);
             if (b.id && await one("SELECT 1 FROM deleted_records WHERE entity='projects' AND entity_id=?", b.id)) fail('Restore this deleted record before editing it.',409);
             if (b.id && !old)
                 fail('Project not found.', 404);
             const links=resolveProjectLinks(b,old);
-            await ensureRoutingSchema(getClient());
-            const base=b.slug || slugify(b.name);
-            if((b.slug!==undefined&&b.slug!==''&&!validProjectSlug(b.slug)) || (!old && RESERVED.has(base)))fail('Choose a URL-safe, non-reserved project slug.',400);
-            const tx=await getClient().transaction('write');
-            try {
-            const current=(await tx.execute(stmt('SELECT slug FROM project_urls WHERE project_id=?',eid))).rows[0]?.slug;
-            const used=(await tx.execute('SELECT slug,project_id FROM project_slug_history')).rows;
-            const slug=b.slug || current || uniqueSlug(base,new Set(used.map(r=>r.slug)));
-            if(used.some(r=>r.slug===slug&&r.project_id!==eid))fail('This project slug is already reserved.',409);
-
             const timeTracking = b.time_tracking_enabled ?? old?.time_tracking_enabled ?? 0;
             const ss = [stmt('INSERT INTO projects(id,name,description,status,hourly_target,rate_cents,color,pay_basis,spreadsheet_id) VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,description=excluded.description,status=excluded.status,hourly_target=excluded.hourly_target,rate_cents=excluded.rate_cents,color=excluded.color,pay_basis=excluded.pay_basis,spreadsheet_id=excluded.spreadsheet_id', eid, b.name, b.description, b.status, b.hourly_target, b.rate_cents, b.color, b.pay_basis, b.spreadsheet_id), stmt('DELETE FROM project_assignments WHERE project_id=?', eid), ...b.employee_ids.map(w => stmt('INSERT INTO project_assignments(project_id,user_id) VALUES(?,?)', eid, w)), stmt('INSERT INTO project_time_tracking(project_id,enabled) VALUES(?,?) ON CONFLICT(project_id) DO UPDATE SET enabled=excluded.enabled', eid, timeTracking), audit(u, 'projects', eid, old ? 'updated' : 'created', old, { ...b, time_tracking_enabled: timeTracking })];
             ss.push(stmt('INSERT INTO project_links(project_id,work_enabled,work_url,assistant_enabled,assistant_url) VALUES(?,?,?,?,?) ON CONFLICT(project_id) DO UPDATE SET work_enabled=excluded.work_enabled,work_url=excluded.work_url,assistant_enabled=excluded.assistant_enabled,assistant_url=excluded.assistant_url',eid,links.work_enabled,links.work_url,links.assistant_enabled,links.assistant_url));
             if (b.client_rate_cents !== undefined) ss.push(stmt('INSERT INTO project_client_rates(project_id,rate_cents) VALUES(?,?) ON CONFLICT(project_id) DO UPDATE SET rate_cents=excluded.rate_cents',eid,b.client_rate_cents));
             ss.push(stmt("INSERT INTO sync_jobs(task_id,status,updated_at) SELECT id,'pending',? FROM task_entries WHERE project_id=? ON CONFLICT(task_id) DO UPDATE SET status='pending',updated_at=excluded.updated_at", now, eid));
-            ss.push(stmt('INSERT INTO project_slug_history(slug,project_id) VALUES(?,?) ON CONFLICT(slug) DO NOTHING',slug,eid));
-            ss.push(stmt('INSERT INTO project_urls(project_id,slug) VALUES(?,?) ON CONFLICT(project_id) DO UPDATE SET slug=excluded.slug',eid,slug));
-            await tx.batch(ss);await tx.commit();
-            }catch(e){await tx.rollback();throw e;}finally{tx.close();}
+            await DB().batch(ss);
             await safeSync(3);
             return json({ saved: true, id: eid });
         }

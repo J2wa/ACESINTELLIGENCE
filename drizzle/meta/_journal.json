@@ -78,13 +78,6 @@
       "when": 1793686586628,
       "tag": "0010_user_presence",
       "breakpoints": true
-    },
-    {
-      "idx": 11,
-      "version": "6",
-      "when": 1794130000000,
-      "tag": "0011_workspace_routes",
-      "breakpoints": true
     }
   ]
 }
