@@ -1,3 +1,4 @@
+import {backfillRoutes} from '../lib/routing-schema.mjs';
 import { createClient } from '@libsql/client';
 import { readFileSync, readdirSync } from 'node:fs';
 import { createHash } from 'node:crypto';
@@ -14,7 +15,11 @@ try {
       continue;
     }
     const statements = source.split('--> statement-breakpoint').map(s=>s.trim()).filter(Boolean);
-    await client.batch([...statements,{sql:'INSERT INTO workhub_migrations VALUES(?,?,?)',args:[name,checksum,Date.now()]}], 'write');
+    const tx=await client.transaction('write');
+    try { for(const sql of statements) await tx.execute(sql);
+      if(name==='0011_workspace_routes.sql')await backfillRoutes(tx);
+      await tx.execute({sql:'INSERT INTO workhub_migrations VALUES(?,?,?)',args:[name,checksum,Date.now()]});await tx.commit();
+    } catch(e){await tx.rollback();throw e;}finally{tx.close();}
     console.log('Applied ' + name);
   }
 } finally { client.close(); }
