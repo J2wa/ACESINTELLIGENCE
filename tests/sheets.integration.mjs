@@ -54,6 +54,8 @@ try {
  assert.equal((await syncTasks()).synced,0);
  assert.equal(appends+updates,writesBeforeMove);
  failWrites=false;
+ assert.equal((await syncTasks()).synced,0); // retries persist across worker invocations
+ await client.execute('UPDATE sync_retry SET next_attempt_at=0');
  assert.equal((await syncTasks()).synced,2); // removal before re-insertion
  assert.equal((await client.execute('SELECT COUNT(*) count FROM deleted_task_sync')).rows[0].count,0);
  assert.equal(values.find(row=>row[9]==='t')[1],'0001');
@@ -65,6 +67,8 @@ try {
  assert.equal((await client.execute('SELECT COUNT(*) count FROM deleted_task_sync')).rows[0].count,1);
  assert(values.some(row=>row[9]==='t'));
  failWrites=false;
+ assert.equal((await syncTasks()).synced,0);
+ await client.execute('UPDATE sync_retry SET next_attempt_at=0');
  assert.equal((await syncTasks()).synced,1);
  assert(!values.some(row=>row[9]==='t'));
  assert.equal((await client.execute('SELECT COUNT(*) count FROM deleted_task_sync')).rows[0].count,0);

@@ -64,3 +64,8 @@ Integration checks use a fresh temporary libSQL database and exercise the actual
 Google Sheets sync requires a service account with access to the tracker, a spreadsheet ID in Settings, and tab names for each work account. Columns A:E are DATE, VIDEO ID, DURATION, STATUS, ANNOTATOR; F:J must be PROJECT, ACCOUNT, TIME SPENT, NOTES, WORKHUB ID. Back up your existing tracker before connecting it. Saves queue sync work; Settings can retry failed jobs.
 
 Time entries snapshot project hourly rates. Payroll summaries total recorded time at those rates; they do not calculate taxes, statutory deductions or send payments.
+
+## Phase 1 reliability release
+
+See [release configuration, verification and backup recovery](docs/PHASE1.md).
+Scheduled Sheets processing requires a production secret and scheduler opt-in.

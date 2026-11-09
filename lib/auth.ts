@@ -7,11 +7,10 @@ export const all = async (sql: string, ...args: unknown[]) => (await stmt(sql, .
 export const id = () => crypto.randomUUID();
 export const sha = async (s: string) => Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)))).map(x => x.toString(16).padStart(2, '0')).join('');
 export const token = () => Array.from(crypto.getRandomValues(new Uint8Array(32))).map(x => x.toString(16).padStart(2, '0')).join('');
-export async function hashPassword(p: string, salt = token()) { const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(p), 'PBKDF2', false, ['deriveBits']); const hash = await crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt: new TextEncoder().encode(salt), iterations: 100000 }, key, 256); return 'pbkdf2$100000$' + salt + '$' + Array.from(new Uint8Array(hash)).map(x => x.toString(16).padStart(2, '0')).join(''); }
+export {hashPassword, checkPassword} from './passwords.mjs';
 export function constantEqual(a: string, b: string) { if (a.length !== b.length)
     return false; let diff = 0; for (let i = 0; i < a.length; i++)
     diff |= a.charCodeAt(i) ^ b.charCodeAt(i); return diff === 0; }
-export async function checkPassword(p: string, h: string | null) { return !!h && constantEqual(await hashPassword(p, h.split('$')[2]), h); }
 export function cookie(req: Request, name: string) { return (req.headers.get('cookie') ?? '').split(';').map(s => s.trim()).find(s => s.startsWith(name + '='))?.slice(name.length + 1) ?? ''; }
 export function setCookie(req: Request, name: string, value: string, maxAge = 43200) { return `${name}=${value}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${maxAge}${new URL(req.url).protocol === 'https:' ? '; Secure' : ''}`; }
 export async function session(req: Request, touch = true) { const raw = cookie(req, 'aces_session'); if (!raw)
