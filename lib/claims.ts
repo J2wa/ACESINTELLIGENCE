@@ -79,6 +79,17 @@ export async function claimsTransaction<T>(work:(tx:Transaction,now:number)=>Pro
  try{const now=Date.now();await expireOverdueClaims(now,tx);const result=await work(tx,now);await tx.commit();return result;}
  catch(e){await tx.rollback();throw e;}finally{tx.close();}
 }
+// Reads must not hold the database writer lock while returning a dashboard.
+// Expire due claims in a short write transaction first; normal reads never write.
+export async function claimsReadTransaction<T>(work:(tx:Transaction)=>Promise<T>){
+ await ensureClaimsSchema(getClient());
+ await ensureClaimDetailsSchema(getClient());
+ const due=await getClient().execute(stmt("SELECT 1 FROM task_pool WHERE status='CLAIMED' AND overdue=0 AND deadline_at<=? LIMIT 1",Date.now()));
+ if(due.rows.length)await claimsTransaction(async()=>{});
+ const tx=await getClient().transaction('read');
+ try{const result=await work(tx);await tx.commit();return result;}
+ catch(e){await tx.rollback();throw e;}finally{tx.close();}
+}
 export async function claimsSnapshot(tx:Transaction,u:Actor){
  const pool=await rows(tx,`SELECT p.*,d.english_subtitles,CASE WHEN d.requested_by=p.claimed_by THEN d.extension_hours END AS extension_hours,CASE WHEN d.requested_by=p.claimed_by THEN d.extension_reason END AS extension_reason,CASE WHEN d.requested_by=p.claimed_by THEN d.extension_status END AS extension_status,(SELECT notes FROM task_entries t WHERE t.id=p.task_entry_id) AS task_notes,(SELECT status FROM task_entries t WHERE t.id=p.task_entry_id) AS task_status FROM task_pool p LEFT JOIN task_pool_details d ON d.pool_id=p.id WHERE ${u.role==='ADMIN'?'1=1':`p.claimed_by=? OR (p.status='AVAILABLE' AND EXISTS(SELECT 1 FROM project_task_claiming c WHERE c.project_id=p.project_id AND c.enabled=1) AND EXISTS(SELECT 1 FROM projects x WHERE x.id=p.project_id AND x.status='active') AND EXISTS(SELECT 1 FROM accounts a WHERE a.id=p.account_id AND a.active=1) AND NOT EXISTS(SELECT 1 FROM deleted_records WHERE entity='projects' AND entity_id=p.project_id) AND NOT EXISTS(SELECT 1 FROM deleted_work_accounts WHERE account_id=p.account_id) AND EXISTS(SELECT 1 FROM project_assignments WHERE project_id=p.project_id AND user_id=?) AND EXISTS(SELECT 1 FROM account_assignments WHERE account_id=p.account_id AND user_id=?))`} ORDER BY p.created_at,p.id`,...(u.role==='ADMIN'?[]:[u.id,u.id,u.id]));
  return pool.map(p=>{if(u.role==='ADMIN')return p;const safe={...p};delete safe.created_by;delete safe.expiry_count;return safe;});

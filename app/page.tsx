@@ -162,28 +162,33 @@ export default function Workhub() {
         } catch(error) {setSyncMessage((error as Error).message);} finally {setBusy(false);}
     }
     const [tasksLoading,setTasksLoading] = useState(false);
-    const taskQueryKey = JSON.stringify([page,filters,search,sort,reverse,tablePage]);
-    const lastTaskQuery = useRef('');
+    const taskQuery = '/api/tasks?' + new URLSearchParams({...filters,search,sort,reverse:String(reverse),page:String(tablePage),limit:'25',background:'1'});
+    const taskQueryRef = useRef(taskQuery);
+    const taskRequestScheduled = useRef(false);
+    taskQueryRef.current = taskQuery;
+    const taskRefresh = useMemo(() => createWorkspaceRefresh({
+        getUrl: () => taskQueryRef.current,
+        isValidData: (result: Row) => Array.isArray(result?.tasks) && Number.isFinite(result?.total),
+        onLoading: (loading: boolean, background: boolean) => { if (!background) setTasksLoading(loading); },
+        onData: (result: Row) => {
+            if(result.page>0 && result.page*result.limit>=result.total) setTablePage(Math.max(0,Math.ceil(result.total/result.limit)-1));
+            else setTaskResult(result);
+        },
+        onExpired: () => { setData(null); setAuth(previous => ({...previous,user:null})); setModal(null); setMode('demo'); },
+    }), []);
     useEffect(() => {
         if(mode !== 'live' || page !== 'Task log') return;
-        const controller = new AbortController();
         setTasksLoading(true);
-        if(lastTaskQuery.current !== taskQueryKey) {setTaskResult({tasks:[],times:[],summaries:{},total:0});lastTaskQuery.current=taskQueryKey;}
-        const query = new URLSearchParams({...filters,search,sort,reverse:String(reverse),page:String(tablePage),limit:'25',background:'1'});
-        const timer = setTimeout(async()=>{
-            try {
-                const response = await fetch('/api/tasks?'+query,{signal:controller.signal,cache:'no-store'});
-                const result = await response.json();
-                if(!response.ok) throw new Error(result.error ?? 'Unable to load tasks.');
-                if(!controller.signal.aborted) {
-                    if(tablePage>0 && tablePage*25>=result.total) setTablePage(Math.max(0,Math.ceil(result.total/25)-1));
-                    else setTaskResult(result);
-                }
-            } catch(error) {if(!controller.signal.aborted) setError((error as Error).message);}
-            finally {if(!controller.signal.aborted) setTasksLoading(false);}
-        },150);
-        return ()=>{clearTimeout(timer);controller.abort();};
-    },[mode,page,filters,search,sort,reverse,tablePage,data,taskQueryKey]);
+        setTaskResult({tasks:[],times:[],summaries:{},total:0});
+        taskRequestScheduled.current = true;
+        const timer = setTimeout(() => { taskRequestScheduled.current = false; void taskRefresh.refresh().catch(error => setError(error.message)); },150);
+        return () => {clearTimeout(timer);taskRequestScheduled.current = false;taskRefresh.invalidate();};
+    },[mode,page,taskQuery,taskRefresh]);
+    // A workspace poll can request fresh rows, but must never cancel an in-flight
+    // task page. Query/navigation changes above still supersede stale requests.
+    useEffect(() => {
+        if(mode === 'live' && page === 'Task log' && !taskRequestScheduled.current) void taskRefresh.refresh(true).catch(error => setError(error.message));
+    },[data,mode,page,taskRefresh]);
     const spentByTask = useMemo(()=>{
         const totals = new Map<string,number>();
         for(const time of rawTimes) if(time.end_ms) totals.set(time.task_id,(totals.get(time.task_id)??0)+(time.end_ms-time.start_ms)/1000);
