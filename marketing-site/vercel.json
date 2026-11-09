@@ -1,0 +1,82 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "cleanUrls": true,
+  "outputDirectory": "public",
+  "functions": {
+    "api/submit.js": {
+      "maxDuration": 30
+    }
+  },
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        }
+      ]
+    },
+    {
+      "source": "/(.*)\\.(css|js|png|svg)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=3600, stale-while-revalidate=86400"
+        }
+      ]
+    },
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store"
+        }
+      ]
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/api/auth/:path*",
+      "destination": "/api/auth"
+    },
+    {
+      "source": "/api/auth-status",
+      "destination": "/api/auth"
+    }
+  ],
+  "redirects": [
+    {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "agents.acesintelligence.xyz"
+        }
+      ],
+      "destination": "https://acesintelligence.xyz/agents",
+      "permanent": true
+    },
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "login.acesintelligence.xyz"
+        }
+      ],
+      "destination": "/team-login",
+      "permanent": false
+    }
+  ],
+  "buildCommand": "npm run build"
+}

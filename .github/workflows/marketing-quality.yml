@@ -1,0 +1,44 @@
+name: Marketing quality
+on:
+  pull_request:
+    paths: ['marketing-site/**', '.github/workflows/marketing-quality.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: marketing-site
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: marketing-site/package-lock.json
+      - run: npm ci
+      - run: npm run build && npm test
+      - name: Start review server
+        run: |
+          npm run dev > /tmp/aces-marketing.log 2>&1 &
+          for i in $(seq 1 30); do curl -fsS http://localhost:3000/ > /dev/null && exit 0; sleep 1; done
+          cat /tmp/aces-marketing.log
+          exit 1
+      - name: Lighthouse mobile and desktop, before and after
+        run: |
+          mkdir -p reports
+          npx --yes lighthouse@13.6.0 https://acesintelligence.xyz --chrome-flags="--headless --no-sandbox" --output=json --output=html --output-path=reports/before-mobile
+          npx --yes lighthouse@13.6.0 https://acesintelligence.xyz --preset=desktop --chrome-flags="--headless --no-sandbox" --output=json --output=html --output-path=reports/before-desktop
+          npx --yes lighthouse@13.6.0 http://localhost:3000 --chrome-flags="--headless --no-sandbox" --output=json --output=html --output-path=reports/after-mobile
+          npx --yes lighthouse@13.6.0 http://localhost:3000 --preset=desktop --chrome-flags="--headless --no-sandbox" --output=json --output=html --output-path=reports/after-desktop
+          npx --yes lighthouse@13.6.0 http://localhost:3000/inquiry --only-categories=accessibility --chrome-flags="--headless --no-sandbox" --output=json --output-path=reports/inquiry-a11y.json
+          npx --yes lighthouse@13.6.0 http://localhost:3000/careers --only-categories=accessibility --chrome-flags="--headless --no-sandbox" --output=json --output-path=reports/careers-a11y.json
+      - name: Enforce review-build budgets
+        run: node scripts/check-audits.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: marketing-lighthouse
+          path: marketing-site/reports/

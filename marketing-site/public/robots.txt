@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /team-login
+Sitemap: https://acesintelligence.xyz/sitemap.xml
