@@ -2,6 +2,22 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createWorkspaceRefresh, startWorkspaceUpdates } from '../lib/workspace-updates.mjs';
 const response = (status, data) => ({status, ok:status===200, json:async()=>data});
+test('slow task pages survive repeated workspace polls and query changes discard stale rows', async () => {
+ const requests=[], received=[], loading=[];
+ let url='/api/tasks?page=0';
+ const loader=createWorkspaceRefresh({getUrl:()=>url,fetcher:(url,options)=>new Promise(resolve=>requests.push({url,options,resolve})),isValidData:data=>Array.isArray(data?.tasks),onData:data=>received.push(data),onLoading:(active,background)=>loading.push({active,background}),onExpired:()=>assert.fail('unexpected expiry')});
+ const first=loader.refresh();
+ for(let i=0;i<5;i++)await loader.refresh(true);
+ assert.equal(requests.length,1);assert.equal(requests[0].options.signal.aborted,false);
+ requests[0].resolve(response(200,{tasks:[{id:'first'}],total:1}));await first;
+ assert.equal(received[0].tasks[0].id,'first');
+ const poll=loader.refresh(true);url='/api/tasks?search=new';
+ const search=loader.refresh();assert(requests[1].options.signal.aborted);
+ requests[2].resolve(response(200,{tasks:[{id:'new'}],total:1}));await search;
+ requests[1].resolve(response(200,{tasks:[{id:'stale'}],total:1}));await poll;
+ assert.deepEqual(received.map(r=>r.tasks[0].id),['first','new']);
+ assert(loading.some(x=>x.background));assert.equal(loading.at(-1).active,false);
+});
 test('new foreground snapshots supersede stale polls and background reads never overlap', async () => {
  const requests=[], received=[];
  const loader=createWorkspaceRefresh({fetcher:(url,options)=>new Promise(resolve=>requests.push({url,options,resolve})),onData:data=>received.push(data),onExpired:()=>assert.fail('unexpected expiry')});

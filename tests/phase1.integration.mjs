@@ -66,6 +66,20 @@ try {
  const lightweight=await (await req('workspace?scope=1&view=tasks',admin)).json();
  assert.equal(lightweight.tasks.length,0);assert.equal(lightweight.invoice_items.length,0);
 
+ // Normal task reads neither acquire the writer lock nor make one request per
+ // summary/detail query. Workspace reads must also leave concurrent writers free.
+ const transaction=client.transaction.bind(client), modes=[];let batches=0;
+ client.transaction=async mode=>{
+  modes.push(mode);const tx=await transaction(mode),batch=tx.batch.bind(tx);
+  tx.batch=async statements=>{batches++;return batch(statements);};return tx;
+ };
+ try {
+  await req('tasks?limit=25&background=1',admin);
+  assert.deepEqual(modes,['read']);assert.equal(batches,2);
+  await req('workspace?scope=1&view=tasks&background=1',admin);
+  assert.deepEqual(modes,['read','read']);
+ } finally {client.transaction=transaction;}
+
  // Scheduling never grants session access and preview workers cannot run.
  delete process.env.CRON_SECRET;assert.equal((await worker(new Request(origin))).status,401);
  process.env.CRON_SECRET=randomBytes(32).toString('hex');

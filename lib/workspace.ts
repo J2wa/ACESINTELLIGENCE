@@ -1,11 +1,11 @@
 import {all,stmt,config} from './auth';
-import {claimsTransaction,claimsSnapshot} from './claims';
+import {claimsReadTransaction,claimsSnapshot} from './claims';
 import {companyProfitRows} from './profit-core.mjs';
 import {workspaceRange,taskQuery} from './workspace-query';
 import {enrichTaskHours} from './workspace-aggregation';
 type SnapshotRows = Awaited<ReturnType<typeof all>>;
 export async function snapshot(u: {id:string;role:string}, q?: URLSearchParams) {
- return claimsTransaction(async (tx) => {
+ return claimsReadTransaction(async (tx) => {
     const all = async (sql:string,...args:unknown[]) => (await tx.execute(stmt(sql,...args))).rows as SnapshotRows;
     const one = async (sql:string,...args:unknown[]) => (await all(sql,...args))[0];
     const range = workspaceRange(q), lightTasks = q?.get('view') === 'tasks';
@@ -50,26 +50,30 @@ const TASK_SELECT = 'SELECT t.*,EXISTS(SELECT 1 FROM payment_invoice_items i WHE
 
 export async function taskPage(u: {id:string;role:string}, params: URLSearchParams) {
  const query = taskQuery(params,u);
- return claimsTransaction(async tx => {
-  const rows = async (sql:string,...args:unknown[]) => (await tx.execute(stmt(sql,...args))).rows as SnapshotRows;
+ return claimsReadTransaction(async tx => {
   const joins = ' JOIN users u ON u.id=t.user_id JOIN accounts a ON a.id=t.account_id';
-  const total = Number((await rows('SELECT COUNT(*) AS n FROM task_entries t'+joins+query.where,...query.args))[0].n);
-  const tasks = await rows(TASK_SELECT+joins+query.where+' ORDER BY '+query.order+' LIMIT ? OFFSET ?',...query.args,query.limit,query.page*query.limit);
-  const summaries: Record<string,SnapshotRows> = {};
-  if(u.role === 'ADMIN') for(const [group,column] of [['employee','user_id'],['project','project_id'],['account','account_id']]) {
-    summaries[group] = await rows(`SELECT t.${column} AS id,COUNT(*) AS tasks,
+  // Two batches preserve one read snapshot without a network round trip per query.
+  const summaryGroups = u.role === 'ADMIN' ? [['employee','user_id'],['project','project_id'],['account','account_id']] : [];
+  const results = await tx.batch([
+    stmt('SELECT COUNT(*) AS n FROM task_entries t'+joins+query.where,...query.args),
+    stmt(TASK_SELECT+joins+query.where+' ORDER BY '+query.order+' LIMIT ? OFFSET ?',...query.args,query.limit,query.page*query.limit),
+    ...summaryGroups.map(([,column]) => stmt(`SELECT t.${column} AS id,COUNT(*) AS tasks,
       SUM(t.status='PENDING') AS pending,SUM(t.status='APPROVED') AS approved,
       SUM(t.status='RETURNED') AS returned,SUM(t.status='SKIPPED (NO CHANGES)') AS skipped,
       SUM(t.duration_seconds) AS video_seconds,
       SUM((SELECT COALESCE(SUM((end_ms-start_ms)/1000),0) FROM time_entries WHERE task_id=t.id AND end_ms IS NOT NULL)) AS spent_seconds
-      FROM task_entries t`+joins+query.where+` GROUP BY t.${column}`,...query.args);
-  }
+      FROM task_entries t`+joins+query.where+` GROUP BY t.${column}`,...query.args))
+  ]);
+  const total = Number(results[0].rows[0].n), tasks = results[1].rows as SnapshotRows;
+  const summaries: Record<string,SnapshotRows> = Object.fromEntries(summaryGroups.map(([group],i) => [group,results[i+2].rows as SnapshotRows]));
   if(!tasks.length) return {tasks:[],times:[],summaries,total,page:query.page,limit:query.limit};
   const marks = tasks.map(()=>'?').join(','), ids = tasks.map(t=>t.id);
-  const times = await rows('SELECT t.*,(SELECT invoice_id FROM payment_times WHERE time_entry_id=t.id) AS paid_invoice_id FROM time_entries t WHERE task_id IN ('+marks+')',...ids);
-  const reviews = await rows('SELECT * FROM task_hour_reviews WHERE task_id IN ('+marks+')',...ids);
-  const sheets = await rows('SELECT * FROM timesheets WHERE user_id IN (SELECT user_id FROM task_entries WHERE id IN ('+marks+'))',...ids);
-  const claims = await rows('SELECT * FROM task_pool WHERE task_entry_id IN ('+marks+')',...ids);
+  const [times,reviews,sheets,claims] = (await tx.batch([
+    stmt('SELECT t.*,(SELECT invoice_id FROM payment_times WHERE time_entry_id=t.id) AS paid_invoice_id FROM time_entries t WHERE task_id IN ('+marks+')',...ids),
+    stmt('SELECT * FROM task_hour_reviews WHERE task_id IN ('+marks+')',...ids),
+    stmt('SELECT * FROM timesheets WHERE user_id IN (SELECT user_id FROM task_entries WHERE id IN ('+marks+'))',...ids),
+    stmt('SELECT * FROM task_pool WHERE task_entry_id IN ('+marks+')',...ids)
+  ])).map(result => result.rows as SnapshotRows);
   const claimMap = new Map(claims.map(c=>[c.task_entry_id,c]));
   const enriched = enrichTaskHours(tasks,times,reviews,sheets).map(t=>{const c=claimMap.get(t.id);return {...t,claim_id:c?.id??null,claim_status:c?.status??null,claim_deadline_at:c?.deadline_at??null,claim_overdue:c?.overdue??0};});
   return {tasks:enriched,times,summaries,total,page:query.page,limit:query.limit};
