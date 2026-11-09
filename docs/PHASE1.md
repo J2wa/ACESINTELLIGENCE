@@ -115,7 +115,8 @@ production session behavior and operational backup retention still require stagi
 validation before deployment. Optional MFA,
 full collection pagination, summary caching and external alert delivery remain future
 work. Full repository lint has pre-existing `no-explicit-any` violations: 63 errors on
-the base commit versus 59 after this change. No new lint error rule was introduced.
+the initial base commit versus 59 after Phase 1; incorporating the subsequent
+task-return commit adds its existing violation, bringing the current branch to 60. No new lint error rule was introduced.
 
 References: [Vercel request headers](https://vercel.com/docs/headers/request-headers),
 [Vercel cron limits](https://vercel.com/docs/cron-jobs/usage-and-pricing),

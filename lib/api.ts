@@ -1,3 +1,4 @@
+import {returnTask} from './return-task';
 import {snapshot, taskPage} from './workspace';
 import {passwordHashInfo, needsPasswordUpgrade} from './passwords.mjs';
 import {throttleLogin} from './login-security';
@@ -213,6 +214,7 @@ export async function handle(req: Request) {
             if(path==='claims/complete')return json(await changeClaim(u,body,'complete'));
             if(path==='claims/admin')return json(await changeClaim(u,body,'admin'));
         }
+        if (path === 'tasks/return' && method === 'POST') return json(await returnTask(u,await req.json()));
         if (path === 'tasks' && method === 'POST') {
             const b = taskInput.parse(await req.json());
             if (b.id) { await editTask(u,b);  return json({saved:true,id:b.id,sync:'queued'}); }
