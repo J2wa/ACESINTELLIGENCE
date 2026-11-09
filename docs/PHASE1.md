@@ -121,3 +121,14 @@ task-return commit adds its existing violation, bringing the current branch to 6
 References: [Vercel request headers](https://vercel.com/docs/headers/request-headers),
 [Vercel cron limits](https://vercel.com/docs/cron-jobs/usage-and-pricing),
 [OWASP password storage](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html).
+
+## Production release configuration
+
+The connected ACES Intelligence team has Vercel Pro. The release therefore uses
+a native five-minute Vercel cron and does not require enabling the GitHub Actions
+schedule. Production builds first run `scripts/release-phase1.mjs`, which applies
+only the eight idempotent CREATE statements in migration 0015 and verifies their
+existence. It skips Vercel previews, never replays the legacy initial schema, and
+does not edit or delete work/payment rows. New installations must still run the
+full migration runner before this existing-installation release path. The earlier
+daily-cron guidance applies only if this configuration is adapted to Hobby.
