@@ -11,7 +11,7 @@ async function req(path,body,cookie='',status=200){const r=await handle(new Requ
 const cookie=r=>r.headers.get('set-cookie').split(';')[0];
 try{
 // Start with the prior deployed schema; the authenticated request must add payment tables safely.
-for(const f of readdirSync('drizzle').filter(f=>f.endsWith('.sql')&&!f.startsWith('0002')&&!f.startsWith('0005')&&!f.startsWith('0006')&&!f.startsWith('0007')).sort())for(const sql of readFileSync('drizzle/'+f,'utf8').split('--> statement-breakpoint').map(s=>s.trim()).filter(Boolean))await db.prepare(sql).run();
+for(const f of readdirSync('drizzle').filter(f=>f.endsWith('.sql')&&!f.startsWith('0002')&&!f.startsWith('0005')&&!f.startsWith('0006')&&!f.startsWith('0007')&&!f.startsWith('0015')).sort())for(const sql of readFileSync('drizzle/'+f,'utf8').split('--> statement-breakpoint').map(s=>s.trim()).filter(Boolean))await db.prepare(sql).run();
 const admin=cookie((await req('auth/setup',{name:'Coordinator',email:'admin@example.com',password:randomBytes(24).toString('hex'),bootstrap_token:process.env.BOOTSTRAP_TOKEN})).r);
 await req('workspace',null,admin);assert(await db.prepare('SELECT version FROM payroll_schema_version WHERE version=1').first());
 const passA=randomBytes(24).toString('hex'),passB=randomBytes(24).toString('hex');
@@ -205,5 +205,28 @@ assert(await db.prepare('SELECT task_id FROM payment_tasks WHERE task_id=?').bin
 assert.equal((await req('invoices/'+aliceInvoice.id,null,a)).j.total_cents,24345);
 await req('admin/deletion',{entity:'accounts',id:account,action:'restore'},admin);
 checks+=9;
+// Restore a real financial fixture into a new local database and compare every
+// table value before checking that invoice immutability survives restoration.
+const {writeBackup,restoreBackup}=await import('../lib/backup.mjs');
+const {createClient}=await import('@libsql/client');
+const backupFile=join(dir,'backup.json'),restoredFile=join(dir,'restored.db');
+await writeBackup(getClient(),backupFile);
+restoreBackup(backupFile,restoredFile);
+assert.throws(()=>restoreBackup(backupFile,restoredFile),/EEXIST/);
+assert.throws(()=>restoreBackup(backupFile,'libsql://production'),/local file/);
+const restored=createClient({url:'file:'+restoredFile});
+try {
+ const tables=(await getClient().execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")).rows;
+ for(const {name} of tables) {
+  const query='SELECT * FROM "'+name.replaceAll('"','""')+'"';
+  const normalize=rows=>rows.map(row=>JSON.stringify({...row})).sort();
+  assert.deepEqual(normalize((await restored.execute(query)).rows),normalize((await getClient().execute(query)).rows),name);
+ }
+ assert.equal((await restored.execute('PRAGMA integrity_check')).rows[0].integrity_check,'ok');
+ assert.equal((await restored.execute('PRAGMA foreign_key_check')).rows.length,0);
+ await assert.rejects(restored.execute('DELETE FROM payment_invoice_items'),/invoice_immutable/);
+ await assert.rejects(restored.execute('UPDATE payment_invoices SET total_cents=0'),/invoice_immutable/);
+ checks+=tables.length+4;
+} finally {restored.close();}
 console.log(`PASS: ${checks} payment API checks covering additive migration, previews, stale data, atomic rollback, idempotency, paid locks, invoice privacy, CSV, immutable history, and lifetime/monthly earnings.`);
 }finally{Date.now=originalNow;getClient().close();rmSync(dir,{recursive:true,force:true});}

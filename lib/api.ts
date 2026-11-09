@@ -1,5 +1,8 @@
+import {snapshot, taskPage} from './workspace';
+import {passwordHashInfo, needsPasswordUpgrade} from './passwords.mjs';
+import {throttleLogin} from './login-security';
 import {accountCredentials} from './account-credentials';
-import {claimsTransaction,claimsSnapshot,claimProjectFields,managePool,claimTask,changeClaim,updateClaimDetails} from './claims';
+import {claimsTransaction,claimProjectFields,managePool,claimTask,changeClaim,updateClaimDetails} from './claims';
 import {ensureClaimsSchema} from './claims-schema.mjs';
 import { deleteTasks, editTask } from './task-mutations';
 import {recordPresence,presenceList} from './presence';
@@ -7,7 +10,6 @@ import { ensureWorkAccountDeletion, changeWorkAccountDeletion } from './work-acc
 import { ensureProjectLinks, projectLinkFields, resolveProjectLinks } from './project-links';
 import { exportArchive } from './archive-export';
 import { ensureProfitSchema } from './profit-schema.mjs';
-import { companyProfitRows } from './profit-core.mjs';
 import { projectArchive } from './project-archive';
 import { ensureDeletionSchema, changeDeletion } from './admin-deletion';
 import { invoicePdf } from './invoice-pdf';
@@ -59,38 +61,6 @@ async function dailyWarning(user: string, start: number, end: number) { for (con
     if (secs > 43200)
         return 'You have logged more than 12 hours in a Manila day. Please review your entries.';
 } return null; }
-type SnapshotRows = Awaited<ReturnType<typeof all>>;
-async function snapshot(u: any) {
- return claimsTransaction(async (tx) => {
-    const all = async (sql:string,...args:unknown[]) => (await tx.execute(stmt(sql,...args))).rows as SnapshotRows;
-    const one = async (sql:string,...args:unknown[]) => (await all(sql,...args))[0];
-    const task_pool = await claimsSnapshot(tx,u);
-
-    const where = u.role === 'ADMIN' ? '' : ' WHERE t.user_id=?', args = u.role === 'ADMIN' ? [] : [u.id];
-    const result = {
-        task_pool, claim_counts: u.role === 'ADMIN' ? {overdue:task_pool.filter(p=>p.overdue===1).length,expired:task_pool.reduce((n,p)=>n+Number(p.expiry_count??0),0)} : undefined,
-        user: u, users: await all('SELECT id,name,email,role,active,(SELECT deleted_at FROM deleted_records WHERE entity=\'users\' AND entity_id=users.id) AS deleted_at FROM users' + (u.role === 'ADMIN' ? '' : ' WHERE id=?'), ...args),
-        projects: await all('SELECT p.*,(SELECT deleted_at FROM deleted_records WHERE entity=\'projects\' AND entity_id=p.id) AS deleted_at,COALESCE(s.enabled,0) AS time_tracking_enabled,COALESCE(l.work_enabled,0) AS work_enabled,COALESCE(l.work_url,\'\') AS work_url,COALESCE(l.assistant_enabled,0) AS assistant_enabled,COALESCE(l.assistant_url,\'\') AS assistant_url FROM projects p LEFT JOIN project_time_tracking s ON s.project_id=p.id LEFT JOIN project_links l ON l.project_id=p.id' + (u.role === 'ADMIN' ? '' : ' WHERE p.id IN (SELECT project_id FROM project_assignments WHERE user_id=?)'), ...args),
-        accounts: await all('SELECT accounts.*,(SELECT deleted_at FROM deleted_work_accounts WHERE account_id=accounts.id) AS deleted_at FROM accounts' + (u.role === 'ADMIN' ? '' : ' WHERE id IN (SELECT account_id FROM account_assignments WHERE user_id=?)'), ...args),
-        assignments: await all('SELECT * FROM project_assignments' + (u.role === 'ADMIN' ? '' : ' WHERE user_id=?'), ...args), account_assignments: await all('SELECT * FROM account_assignments' + (u.role === 'ADMIN' ? '' : ' WHERE user_id=?'), ...args),
-        tasks: await all('SELECT t.*,EXISTS(SELECT 1 FROM payment_invoice_items i WHERE i.task_id=t.id OR i.time_entry_id IN (SELECT id FROM time_entries WHERE task_id=t.id)) AS invoice_locked,EXISTS(SELECT 1 FROM task_hour_reviews r WHERE r.task_id=t.id AND r.status=\'APPROVED\') AS review_approved,EXISTS(SELECT 1 FROM deleted_task_sync d WHERE d.task_id=t.id) AS removal_pending,(SELECT invoice_id FROM payment_tasks WHERE task_id=t.id) AS paid_invoice_id,(SELECT COALESCE(SUM((end_ms-start_ms)/1000),0) FROM time_entries WHERE task_id=t.id AND end_ms IS NOT NULL) AS spent_seconds FROM task_entries t' + where + ' ORDER BY date DESC,created_at DESC', ...args),
-        times: await all('SELECT t.*,(SELECT invoice_id FROM payment_times WHERE time_entry_id=t.id) AS paid_invoice_id FROM time_entries t' + where + ' ORDER BY start_ms DESC', ...args), sheets: await all('SELECT t.* FROM timesheets t' + where + ' ORDER BY week_start DESC', ...args),
-        invoices: await all('SELECT t.*,(SELECT deleted_at FROM deleted_records WHERE entity=\'invoices\' AND entity_id=t.id) AS deleted_at FROM payment_invoices t' + where + ' ORDER BY paid_at DESC,number DESC', ...args), invoice_items: await all('SELECT t.* FROM payment_invoice_items t' + where, ...args),
-        sync: u.role === 'ADMIN' ? await all("SELECT task_id,status,last_error,updated_at FROM sync_jobs UNION ALL SELECT task_id,CASE WHEN last_error IS NULL THEN 'pending' ELSE 'error' END,last_error,updated_at FROM deleted_task_sync") : [], settings: u.role === 'ADMIN' ? { spreadsheet_id: (await one("SELECT value FROM settings WHERE key='spreadsheet_id'"))?.value ?? '', google_configured: false, sheets_configured: !!config('GOOGLE_SERVICE_ACCOUNT_JSON'), google_only: false } : {}
-    };
-    const claimSettings = await all('SELECT * FROM project_task_claiming');
-    result.projects = result.projects.map(p=>{const c=claimSettings.find(c=>c.project_id===p.id);return {...p,claiming_enabled:c?.enabled??0,claim_deadline_hours:c?.deadline_hours??24,claim_max_active:c?.max_active??1};});
-    result.tasks = result.tasks.map(t=>{const c=task_pool.find(c=>c.task_entry_id===t.id);return {...t,claim_id:c?.id??null,claim_status:c?.status??null,claim_deadline_at:c?.deadline_at??null,claim_overdue:c?.overdue??0};});
-    const reviews = await all('SELECT r.* FROM task_hour_reviews r JOIN task_entries t ON t.id=r.task_id' + (u.role === 'ADMIN' ? '' : ' WHERE t.user_id=?'), ...args);
-    result.tasks = result.tasks.map((t: any) => taskHours(t, result.times, reviews.find((r: any) => r.task_id === t.id), result.sheets));
-    if (u.role === 'ADMIN') {
-        const clientRates = await all('SELECT * FROM project_client_rates');
-        result.projects = result.projects.map((p:any)=>({...p,client_rate_cents:clientRates.find(r=>r.project_id===p.id)?.rate_cents ?? null}));
-        return { ...result, profit_rows:companyProfitRows(result,await all('SELECT * FROM work_client_rates')) };
-    }
-    return result;
- });
-}
 export async function handle(req: Request) {
     try {
         const path = new URL(req.url).pathname.replace(/^\/api\//, ''), method = req.method, now = Date.now();
@@ -99,7 +69,7 @@ export async function handle(req: Request) {
         if (['auth/me','auth/login','auth/google','auth/google/callback'].includes(path) && config('ADMIN_EMAIL') && config('ADMIN_PASSWORD_HASH')) {
             const adminEmail = config('ADMIN_EMAIL').trim().toLowerCase();
             const hash = config('ADMIN_PASSWORD_HASH');
-            if (!/^pbkdf2\$100000\$[a-f0-9]{64}\$[a-f0-9]{64}$/.test(hash)) fail('Administrator password hash configuration is invalid.',503);
+            if (!passwordHashInfo(hash)) fail('Administrator password hash configuration is invalid.',503);
             await stmt("INSERT INTO users(id,name,email,password_hash,role,active,created_at) VALUES(?,?,?,?,'ADMIN',1,?) ON CONFLICT(email) DO NOTHING",id(),config('ADMIN_NAME')||'Administrator',adminEmail,hash,now).run();
         }
         if (path === 'auth/me') {
@@ -124,17 +94,12 @@ export async function handle(req: Request) {
         if (path === 'auth/login' && method === 'POST') {
 
             const b = z.object({ email, password: z.string().max(128) }).parse(await req.json());
-            const key = await sha(b.email), ip = await sha(req.headers.get('cf-connecting-ip') ?? 'local');
-            for (const k of [key, 'ip:' + ip]) {
-                const a = await one('SELECT * FROM login_attempts WHERE key=?', k);
-                if (a && a.reset_at > now && a.attempts >= 10)
-                    fail('Too many attempts. Try again in 15 minutes.', 429);
-                await stmt('INSERT INTO login_attempts(key,attempts,reset_at) VALUES(?,1,?) ON CONFLICT(key) DO UPDATE SET attempts=CASE WHEN reset_at<? THEN 1 ELSE attempts+1 END,reset_at=CASE WHEN reset_at<? THEN excluded.reset_at ELSE reset_at END', k, now + 900000, now, now).run();
-            }
+            const key = await throttleLogin(req, b.email, now);
             const u = await one('SELECT * FROM users WHERE email=? AND active=1', b.email);
-            const valid = await checkPassword(b.password, u?.password_hash ?? await hashPassword(token()));
+            const valid = await checkPassword(b.password, u?.password_hash);
             if (!u || !valid)
                 fail('Email or password is incorrect.', 401);
+            if (needsPasswordUpgrade(u.password_hash)) await stmt('UPDATE users SET password_hash=? WHERE id=? AND password_hash=?', await hashPassword(b.password), u.id, u.password_hash).run();
             await stmt('DELETE FROM login_attempts WHERE key=?', key).run();
             return loginResponse(req, u);
         }
@@ -171,7 +136,7 @@ export async function handle(req: Request) {
             response.headers.set('Location', '/');
             return new Response(null, { status: 302, headers: response.headers });
         }
-        const u = await session(req, !['sync','presence','admin/presence'].includes(path) && !(path === 'workspace' && new URL(req.url).searchParams.get('background') === '1'));
+        const u = await session(req, !['sync','presence','admin/presence'].includes(path) && !((path === 'workspace' || (path === 'tasks' && method === 'GET')) && new URL(req.url).searchParams.get('background') === '1'));
         if (!u)
             fail('Your session has expired. Please sign in.', 401);
         await ensurePayrollSchema();
@@ -199,6 +164,10 @@ export async function handle(req: Request) {
             await stmt('DELETE FROM sessions WHERE token_hash=?', await sha(cookie(req, 'aces_session'))).run();
             return new Response('{}', { headers: { 'Set-Cookie': setCookie(req, 'aces_session', '', 0) } });
         }
+        if (path === 'auth/sessions/revoke-others' && method === 'POST') {
+            await stmt('DELETE FROM sessions WHERE user_id=? AND token_hash!=?', u.id, await sha(cookie(req, 'aces_session'))).run();
+            return json({saved:true});
+        }
         if (path === 'auth/password' && method === 'POST') {
             const b = z.object({ current_password: z.string(), password }).parse(await req.json()), record = await one('SELECT password_hash FROM users WHERE id=?', u.id);
             if (record.password_hash && !await checkPassword(b.current_password, record.password_hash))
@@ -207,7 +176,8 @@ export async function handle(req: Request) {
             return loginResponse(req, u);
         }
         if (path === 'workspace' && method === 'GET')
-            return json(await snapshot(u));
+            return json(await snapshot(u, new URL(req.url).searchParams));
+        if (path === 'tasks' && method === 'GET') return json(await taskPage(u, new URL(req.url).searchParams));
         if (['payroll/preview', 'payroll/pay'].includes(path) && method === 'POST') {
             admin(u);
             const filtersInput = z.object({ from: date.optional(), to: date.optional(), employee: z.string().max(100).optional(), project: z.string().max(100).optional(), account: z.string().max(100).optional(), status: z.string().max(50).optional() }).strict();
@@ -218,7 +188,7 @@ export async function handle(req: Request) {
             }
             const b = z.object({ filters: filtersInput, signature:z.string().regex(/^[a-f0-9]{64}$/), request_id:z.string().uuid(), reference:z.string().max(250).default(''), notes:z.string().max(2000).default('') }).strict().parse(await req.json());
             const result = await recordPayment(u, b);
-            await safeSync(3);
+
             return json(result);
         }
         if (path.startsWith('invoices/') && method === 'GET') {
@@ -245,7 +215,7 @@ export async function handle(req: Request) {
         }
         if (path === 'tasks' && method === 'POST') {
             const b = taskInput.parse(await req.json());
-            if (b.id) { await editTask(u,b); await safeSync(3,b.id); return json({saved:true,id:b.id,sync:'queued'}); }
+            if (b.id) { await editTask(u,b);  return json({saved:true,id:b.id,sync:'queued'}); }
             if (u.role !== 'ADMIN' && !['PENDING', 'SKIPPED (NO CHANGES)'].includes(b.status))
                 fail('Only coordinators can approve or return tasks.', 403);
             const p = await assignment(u, b.project_id, b.account_id);
@@ -271,13 +241,7 @@ export async function handle(req: Request) {
             }
             statements.push(audit(u, 'task_entries', taskId, 'created', null, after), queue(taskId));
             await DB().batch(statements);
-            let sync = 'queued';
-            try {
-                const r = await syncTasks(1, taskId);
-                if (r.synced)
-                    sync = 'synced';
-            }
-            catch { /* durable outbox retries from Settings */ }
+            const sync = 'queued';
             return json({ saved: true, id: taskId, sync, warning: minutes ? await dailyWarning(who, midnight(b.date), midnight(addDays(b.date, 1))) : null });
         }
         if (path === 'tasks/bulk' && method === 'POST') {
@@ -325,7 +289,7 @@ export async function handle(req: Request) {
             }
             // One transaction prevents partial uploads, including when a concurrent edit creates a conflict.
             await DB().batch(statements);
-            await safeSync(3);
+
             const longDay = [...dayTimes].some(([key, entries]) => { const date = JSON.parse(key)[1]; return entries.reduce((sum, entry) => sum + Math.max(0, Math.min(entry.end_ms ?? now, midnight(date) + 86400000) - Math.max(entry.start_ms, midnight(date))), 0) > 43200000; });
             return json({ saved: true, count: rows.length, message: `${rows.length} task${rows.length === 1 ? '' : 's'} uploaded.`, warning: longDay ? 'More than 12 hours are logged in a Manila day. Please review your entries.' : null });
         }
@@ -345,7 +309,7 @@ export async function handle(req: Request) {
                 statements.push(stmt("UPDATE task_entries SET status='APPROVED',version=?,updated_at=? WHERE id=?", after.version, now, task.id), audit(u, 'task_entries', task.id, 'approved', task, after), queue(task.id));
             }
             await DB().batch(statements);
-            await safeSync(3);
+
             return json({ saved: true, message: `${b.tasks.length} task${b.tasks.length === 1 ? '' : 's'} approved.` });
         }
         if (path === 'task-hours/bulk' && method === 'POST') {
@@ -374,7 +338,7 @@ export async function handle(req: Request) {
                 approved++;
             }
             // Validate the complete batch before committing any approvals or audit entries.
-            if (statements.length) { await DB().batch(statements); await safeSync(3); }
+            if (statements.length) { await DB().batch(statements);  }
             return json({ saved: true, approved, already_approved: alreadyApproved });
         }
         if (path === 'task-hours' && method === 'POST') {
@@ -389,7 +353,7 @@ export async function handle(req: Request) {
             const status = b.action === 'approve' ? 'APPROVED' : 'RETURNED';
             const old = await one('SELECT * FROM task_hour_reviews WHERE task_id=?', b.task_id);
             await DB().batch([stmt('INSERT INTO task_hour_reviews(task_id,signature,status,reviewed_by,reviewed_at) VALUES(?,?,?,?,?) ON CONFLICT(task_id) DO UPDATE SET signature=excluded.signature,status=excluded.status,reviewed_by=excluded.reviewed_by,reviewed_at=excluded.reviewed_at', b.task_id, signature, status, u.id, now), audit(u, 'task_hours', b.task_id, b.action, old, {status, signature}), queue(b.task_id)]);
-            await safeSync(1, b.task_id);
+
             return json({saved:true});
         }
         if (['tasks/delete','tasks/bulk-delete'].includes(path) && method === 'POST') {
@@ -397,7 +361,7 @@ export async function handle(req: Request) {
             const body = await req.json();
             const tasks = path === 'tasks/delete' ? [item.parse(body)] : z.object({tasks:z.array(item).min(1).max(100)}).strict().parse(body).tasks;
             await deleteTasks(u,tasks);
-            await safeSync(3);
+
             return json({saved:true,deleted:tasks.length,message:`Deleted ${tasks.length} task(s) and linked unpaid working time.`});
         }
         if (path === 'time/delete' && method === 'POST') {
@@ -413,7 +377,7 @@ export async function handle(req: Request) {
                 await transaction.batch(statements);
                 await transaction.commit();
             } catch(error) { await transaction.rollback(); throw error; } finally { transaction.close(); }
-            await safeSync(3);
+
             return json({saved:true,message:'Time entry deleted.'});
         }
         if (path === 'time' && method === 'POST') {
@@ -440,7 +404,7 @@ export async function handle(req: Request) {
             for (const tid of new Set([old?.task_id, b.task_id].filter(Boolean)))
                 statements.push(queue(tid as string));
             await DB().batch(statements);
-            await safeSync(3);
+
             return json({ saved: true, warning: await dailyWarning(u.id, b.start_ms, b.end_ms) });
         }
         if (path === 'timer' && method === 'POST') {
@@ -466,7 +430,7 @@ export async function handle(req: Request) {
             if (active.task_id)
                 statements.push(queue(active.task_id));
             await DB().batch(statements);
-            await safeSync(3);
+
             return json({ saved: true, warning: await dailyWarning(u.id, active.start_ms, now) });
         }
         if (path === 'timesheets' && method === 'POST') {
@@ -515,7 +479,7 @@ export async function handle(req: Request) {
             if (b.client_rate_cents !== undefined) ss.push(stmt('INSERT INTO project_client_rates(project_id,rate_cents) VALUES(?,?) ON CONFLICT(project_id) DO UPDATE SET rate_cents=excluded.rate_cents',eid,b.client_rate_cents));
             ss.push(stmt("INSERT INTO sync_jobs(task_id,status,updated_at) SELECT id,'pending',? FROM task_entries WHERE project_id=? ON CONFLICT(task_id) DO UPDATE SET status='pending',updated_at=excluded.updated_at", now, eid));
             await DB().batch(ss);
-            await safeSync(3);
+
             return json({ saved: true, id: eid });
         }
         if (path === 'accounts' && method === 'POST') {
@@ -531,7 +495,7 @@ export async function handle(req: Request) {
                 if (!await one('SELECT 1 FROM project_assignments WHERE project_id=? AND user_id=?', b.project_id, who))
                     fail('Assign employees to the project before assigning its accounts.');
             await DB().batch([stmt('INSERT INTO accounts(id,project_id,name,active,sheet_tab) VALUES(?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,active=excluded.active,sheet_tab=excluded.sheet_tab', eid, b.project_id, b.name, b.active, b.sheet_tab), stmt('DELETE FROM account_assignments WHERE account_id=?', eid), ...b.employee_ids.map(w => stmt('INSERT INTO account_assignments(account_id,user_id) VALUES(?,?)', eid, w)), audit(u, 'accounts', eid, old ? 'updated' : 'created', old, b), stmt("INSERT INTO sync_jobs(task_id,status,updated_at) SELECT id,'pending',? FROM task_entries WHERE account_id=? ON CONFLICT(task_id) DO UPDATE SET status='pending',updated_at=excluded.updated_at", now, eid)]);
-            await safeSync(3);
+
             return json({ saved: true });
         }
         if (path === 'users' && method === 'POST') {
@@ -553,7 +517,7 @@ export async function handle(req: Request) {
             if (old)
                 ss.push(stmt('DELETE FROM sessions WHERE user_id=?', eid));
             await DB().batch(ss);
-            await safeSync(3);
+
             return json({ saved: true });
         }
         if (path === 'audit' && method === 'GET') {
@@ -566,7 +530,7 @@ export async function handle(req: Request) {
             admin(u);
             const b = z.object({ spreadsheet_id: z.string().regex(/^[a-zA-Z0-9_-]*$/).max(200) }).parse(await req.json());
             await DB().batch([stmt("INSERT INTO settings(key,value) VALUES('spreadsheet_id',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", b.spreadsheet_id), audit(u, 'settings', 'spreadsheet_id', 'updated', null, b), stmt("INSERT INTO sync_jobs(task_id,status,updated_at) SELECT id,'pending',? FROM task_entries WHERE 1 ON CONFLICT(task_id) DO UPDATE SET status='pending',updated_at=excluded.updated_at", now)]);
-            await safeSync(3);
+
             return json({ saved: true });
         }
         if (path === 'sync' && method === 'POST') {

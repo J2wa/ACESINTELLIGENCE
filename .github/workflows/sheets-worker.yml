@@ -1,0 +1,25 @@
+name: Sheets worker
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+permissions: {}
+concurrency:
+  group: sheets-worker
+  cancel-in-progress: false
+jobs:
+  sync:
+    if: vars.SHEETS_WORKER_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Process queued spreadsheet updates
+        env:
+          WORKHUB_URL: ${{ vars.WORKHUB_URL }}
+          CRON_SECRET: ${{ secrets.WORKHUB_CRON_SECRET }}
+        run: |
+          test -n "$CRON_SECRET"
+          case "$WORKHUB_URL" in https://*) ;; *) exit 1 ;; esac
+          curl --fail-with-body --silent --show-error --max-time 235 \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            "${WORKHUB_URL%/}/api/cron/sheets"
