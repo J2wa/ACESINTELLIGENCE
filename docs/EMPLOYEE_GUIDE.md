@@ -42,3 +42,6 @@ Overview highlights your active assigned projects. Use Start working to open the
 Visible signed-in workspaces check for updated tasks, hours, timesheets, assignments, and payments every five seconds. Returning to a tab or reconnecting also checks for changes. Hidden tabs pause background reads. Temporary connection errors keep the current data visible and retry automatically; passive updates do not extend an idle session. Open task forms keep their draft values, and existing stale-edit checks still apply.
 
 Employees can use **Log a task** on an assigned project in Overview to open the task form with that project selected. Invoice action buttons have separate spacing and stack on small screens. Spinners and status text show when sign-in, saves, approvals, uploads, invoice loading, history, or downloads are in progress.
+
+### Employee approval for per-task payments
+Administrators can enable **Employee approval** in project settings when **Per task** is selected. It defaults to off. When enabled, assigned employees can approve their own pending or returned unpaid per-task entries, individually or in bulk from Task log. Paid entries and locked weeks cannot be changed. Hourly entries still require coordinator approval, and only administrators can record payments. Disabling the setting prevents future employee approvals without undoing existing approvals.
