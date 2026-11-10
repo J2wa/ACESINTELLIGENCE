@@ -88,3 +88,6 @@ In Team, choose **View tasks** for all of an employee’s entries. Task rows hav
 Duplicate task IDs match exactly within the same project and work account, across dates and employees. The task form compares the matching entry with your inputs. Choose **Yes, review update to existing entry**, review it, then **Save changes**. The original employee and working time stay attached. Change the task ID to create a separate entry.
 
 Mass uploads show a row-to-existing-entry duplicate map. Each accessible match has an explicit update confirmation. Successful updates remove the row from the pending upload; upload remaining rows when ready. Entered minutes are not added during duplicate updates. Use linked time controls for time corrections. Employees can only access their own matching entries.
+
+### Employee approval for per-task payments
+Administrators can enable **Employee approval** in project settings when **Per task** is selected. It defaults to off. When enabled, assigned employees can approve their own pending or returned unpaid per-task entries, individually or in bulk from Task log. Paid entries and locked weeks cannot be changed. Hourly entries still require coordinator approval, and only administrators can record payments. Disabling the setting prevents future employee approvals without undoing existing approvals.

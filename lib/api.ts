@@ -1,3 +1,4 @@
+import {ensureEmployeeApproval} from './employee-approval';
 import {returnTask} from './return-task';
 import {snapshot, taskPage} from './workspace';
 import {passwordHashInfo, needsPasswordUpgrade} from './passwords.mjs';
@@ -35,7 +36,7 @@ const admin = (u: any) => { if (u.role !== 'ADMIN')
     fail('Administrator access required.', 403); };
 const safeSync = async (limit = 3, taskId?: string) => { try { return await syncTasks(limit, taskId); } catch { return { synced: 0, pending: true, message: 'Saved in Workhub. Spreadsheet sync is queued for retry.' }; } };
 const queue = (task: string) => stmt("INSERT INTO sync_jobs(task_id,status,updated_at) VALUES(?,'pending',?) ON CONFLICT(task_id) DO UPDATE SET status='pending',updated_at=excluded.updated_at", task, Date.now());
-async function assignment(u: any, project: string, account?: string) { const p = await one("SELECT p.*,(SELECT deleted_at FROM deleted_records WHERE entity=\'projects\' AND entity_id=p.id) AS deleted_at,COALESCE(s.enabled,0) AS time_tracking_enabled,COALESCE(l.work_enabled,0) AS work_enabled,COALESCE(l.work_url,\'\') AS work_url,COALESCE(l.assistant_enabled,0) AS assistant_enabled,COALESCE(l.assistant_url,\'\') AS assistant_url FROM projects p LEFT JOIN project_time_tracking s ON s.project_id=p.id LEFT JOIN project_links l ON l.project_id=p.id WHERE p.id=? AND p.status='active'", project); if (!p)
+async function assignment(u: any, project: string, account?: string) { const p = await one("SELECT p.*,(SELECT deleted_at FROM deleted_records WHERE entity=\'projects\' AND entity_id=p.id) AS deleted_at,COALESCE(ea.enabled,0) AS employee_approval_enabled,COALESCE(s.enabled,0) AS time_tracking_enabled,COALESCE(l.work_enabled,0) AS work_enabled,COALESCE(l.work_url,\'\') AS work_url,COALESCE(l.assistant_enabled,0) AS assistant_enabled,COALESCE(l.assistant_url,\'\') AS assistant_url FROM projects p LEFT JOIN project_employee_approval ea ON ea.project_id=p.id LEFT JOIN project_time_tracking s ON s.project_id=p.id LEFT JOIN project_links l ON l.project_id=p.id WHERE p.id=? AND p.status='active'", project); if (!p)
     fail('Choose an active project.'); if (u.role !== 'ADMIN' && !await one('SELECT 1 FROM project_assignments WHERE project_id=? AND user_id=?', project, u.id))
     fail('You are not assigned to this project.', 403); if (account) {
     if (!await one('SELECT 1 FROM accounts WHERE id=? AND project_id=? AND active=1', account, project))
@@ -75,7 +76,7 @@ export async function handle(req: Request) {
         }
         if (path === 'auth/me') {
             const u = await session(req);
-            if (u) { await ensurePayrollSchema(); await ensureLogSchema(); await ensureTimerSchema(getClient()); await ensureDeletionSchema(); await ensureProfitSchema(getClient()); await ensureProjectLinks(); await ensureWorkAccountDeletion(); await ensureClaimsSchema(getClient()); }
+            if (u) { await ensurePayrollSchema(); await ensureLogSchema(); await ensureTimerSchema(getClient()); await ensureEmployeeApproval(); await ensureDeletionSchema(); await ensureProfitSchema(getClient()); await ensureProjectLinks(); await ensureWorkAccountDeletion(); await ensureClaimsSchema(getClient()); }
             return json({ user: u, setup: !await one('SELECT id FROM users LIMIT 1'), owner_setup: false, google_configured: false, google_only: false });
         }
         if (path === 'auth/google' || path === 'auth/google/callback') fail('Sign in using your email and password.',404);
@@ -141,7 +142,7 @@ export async function handle(req: Request) {
         if (!u)
             fail('Your session has expired. Please sign in.', 401);
         await ensurePayrollSchema();
-        await ensureLogSchema(); await ensureTimerSchema(getClient()); await ensureDeletionSchema(); await ensureProfitSchema(getClient()); await ensureProjectLinks(); await ensureWorkAccountDeletion(); await ensureClaimsSchema(getClient());
+        await ensureLogSchema(); await ensureTimerSchema(getClient()); await ensureEmployeeApproval(); await ensureDeletionSchema(); await ensureProfitSchema(getClient()); await ensureProjectLinks(); await ensureWorkAccountDeletion(); await ensureClaimsSchema(getClient());
         if (path === 'admin/project-archive/export' && method === 'POST') {
             admin(u);
             const b=z.object({ids:z.array(uid).min(1).max(1000)}).parse(await req.json());
@@ -296,13 +297,18 @@ export async function handle(req: Request) {
             return json({ saved: true, count: rows.length, message: `${rows.length} task${rows.length === 1 ? '' : 's'} uploaded.`, warning: longDay ? 'More than 12 hours are logged in a Manila day. Please review your entries.' : null });
         }
         if (path === 'task-status' && method === 'POST') {
-            admin(u);
             const b = z.object({ tasks: z.array(z.object({ id: uid, version: z.number().int().positive() })).min(1).max(100) }).parse(await req.json());
             if (new Set(b.tasks.map(t => t.id)).size !== b.tasks.length) fail('Select each task only once.');
             const statements: any[] = [];
             for (const selected of b.tasks) {
                 const task = await one('SELECT * FROM task_entries WHERE id=?', selected.id);
                 if (!task) fail('A selected task no longer exists. Refresh before approving.', 404);
+                if (u.role !== 'ADMIN') {
+                    if (task.user_id !== u.id || task.pay_basis !== 'TASK') fail('You can only approve your own per-task entries.', 403);
+                    const project = await assignment(u, task.project_id, task.account_id);
+                    if (project.deleted_at || project.pay_basis !== 'TASK' || project.employee_approval_enabled !== 1) fail('Employee approval is disabled for this project.', 403);
+                }
+                if (task.paid_invoice_id) fail('Paid tasks cannot be approved again.', 409);
                 if (task.version !== selected.version) fail('A selected task changed. Refresh before approving.', 409);
                 if (!['PENDING', 'RETURNED'].includes(task.status)) fail('Select pending or returned tasks only.', 409);
                 await editableWeek(task.user_id, midnight(task.date));
@@ -465,16 +471,18 @@ export async function handle(req: Request) {
         }
         if (path === 'projects' && method === 'POST') {
             admin(u);
-            const b = z.object({ ...projectLinkFields, ...claimProjectFields, id: uid.optional(), time_tracking_enabled: z.number().int().min(0).max(1).optional(), name, description: z.string().max(3000).default(''), status: z.enum(['active', 'archived']), pay_basis: z.enum(['TASK','VIDEO_HOUR','WORKING_HOUR']).default('WORKING_HOUR'), spreadsheet_id: z.string().regex(/^[a-zA-Z0-9_-]*$/).max(200).default(''), hourly_target: z.number().int().min(0).max(10000).nullable(), rate_cents: z.number().int().min(0).max(10000000), client_rate_cents:z.number().int().min(0).max(10000000).nullable().optional(), color: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#647c45'), employee_ids: z.array(uid) }).parse(await req.json());
-            const eid = b.id ?? id(), old = await one('SELECT p.*,COALESCE(s.enabled,0) AS time_tracking_enabled,COALESCE(l.work_enabled,0) AS work_enabled,COALESCE(l.work_url,\'\') AS work_url,COALESCE(l.assistant_enabled,0) AS assistant_enabled,COALESCE(l.assistant_url,\'\') AS assistant_url FROM projects p LEFT JOIN project_time_tracking s ON s.project_id=p.id LEFT JOIN project_links l ON l.project_id=p.id WHERE p.id=?', eid);
+            const b = z.object({ ...projectLinkFields, ...claimProjectFields, id: uid.optional(), employee_approval_enabled: z.number().int().min(0).max(1).optional(), time_tracking_enabled: z.number().int().min(0).max(1).optional(), name, description: z.string().max(3000).default(''), status: z.enum(['active', 'archived']), pay_basis: z.enum(['TASK','VIDEO_HOUR','WORKING_HOUR']).default('WORKING_HOUR'), spreadsheet_id: z.string().regex(/^[a-zA-Z0-9_-]*$/).max(200).default(''), hourly_target: z.number().int().min(0).max(10000).nullable(), rate_cents: z.number().int().min(0).max(10000000), client_rate_cents:z.number().int().min(0).max(10000000).nullable().optional(), color: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#647c45'), employee_ids: z.array(uid) }).parse(await req.json());
+            const eid = b.id ?? id(), old = await one('SELECT p.*,COALESCE(ea.enabled,0) AS employee_approval_enabled,COALESCE(s.enabled,0) AS time_tracking_enabled,COALESCE(l.work_enabled,0) AS work_enabled,COALESCE(l.work_url,\'\') AS work_url,COALESCE(l.assistant_enabled,0) AS assistant_enabled,COALESCE(l.assistant_url,\'\') AS assistant_url FROM projects p LEFT JOIN project_employee_approval ea ON ea.project_id=p.id LEFT JOIN project_time_tracking s ON s.project_id=p.id LEFT JOIN project_links l ON l.project_id=p.id WHERE p.id=?', eid);
             if (b.id && await one("SELECT 1 FROM deleted_records WHERE entity='projects' AND entity_id=?", b.id)) fail('Restore this deleted record before editing it.',409);
             if (b.id && !old)
                 fail('Project not found.', 404);
             const priorClaim = await one('SELECT * FROM project_task_claiming WHERE project_id=?',eid);
             const claiming={enabled:b.claiming_enabled??priorClaim?.enabled??0,deadline_hours:b.claim_deadline_hours??priorClaim?.deadline_hours??24,max_active:b.claim_max_active??priorClaim?.max_active??1};
             const links=resolveProjectLinks(b,old);
+            const employeeApproval = b.employee_approval_enabled ?? old?.employee_approval_enabled ?? 0;
             const timeTracking = b.time_tracking_enabled ?? old?.time_tracking_enabled ?? 0;
-            const ss = [stmt('INSERT INTO projects(id,name,description,status,hourly_target,rate_cents,color,pay_basis,spreadsheet_id) VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,description=excluded.description,status=excluded.status,hourly_target=excluded.hourly_target,rate_cents=excluded.rate_cents,color=excluded.color,pay_basis=excluded.pay_basis,spreadsheet_id=excluded.spreadsheet_id', eid, b.name, b.description, b.status, b.hourly_target, b.rate_cents, b.color, b.pay_basis, b.spreadsheet_id), stmt('DELETE FROM project_assignments WHERE project_id=?', eid), ...b.employee_ids.map(w => stmt('INSERT INTO project_assignments(project_id,user_id) VALUES(?,?)', eid, w)), stmt('INSERT INTO project_time_tracking(project_id,enabled) VALUES(?,?) ON CONFLICT(project_id) DO UPDATE SET enabled=excluded.enabled', eid, timeTracking), audit(u, 'projects', eid, old ? 'updated' : 'created', old, { ...b, time_tracking_enabled: timeTracking })];
+            const ss = [stmt('INSERT INTO projects(id,name,description,status,hourly_target,rate_cents,color,pay_basis,spreadsheet_id) VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,description=excluded.description,status=excluded.status,hourly_target=excluded.hourly_target,rate_cents=excluded.rate_cents,color=excluded.color,pay_basis=excluded.pay_basis,spreadsheet_id=excluded.spreadsheet_id', eid, b.name, b.description, b.status, b.hourly_target, b.rate_cents, b.color, b.pay_basis, b.spreadsheet_id), stmt('DELETE FROM project_assignments WHERE project_id=?', eid), ...b.employee_ids.map(w => stmt('INSERT INTO project_assignments(project_id,user_id) VALUES(?,?)', eid, w)), stmt('INSERT INTO project_time_tracking(project_id,enabled) VALUES(?,?) ON CONFLICT(project_id) DO UPDATE SET enabled=excluded.enabled', eid, timeTracking), audit(u, 'projects', eid, old ? 'updated' : 'created', old, { ...b, employee_approval_enabled: employeeApproval, time_tracking_enabled: timeTracking })];
+            ss.push(stmt('INSERT INTO project_employee_approval(project_id,enabled) VALUES(?,?) ON CONFLICT(project_id) DO UPDATE SET enabled=excluded.enabled', eid, employeeApproval));
             ss.push(stmt('INSERT INTO project_task_claiming(project_id,enabled,deadline_hours,max_active) VALUES(?,?,?,?) ON CONFLICT(project_id) DO UPDATE SET enabled=excluded.enabled,deadline_hours=excluded.deadline_hours,max_active=excluded.max_active',eid,claiming.enabled,claiming.deadline_hours,claiming.max_active));
             ss.push(audit(u,'project_task_claiming',eid,'updated',priorClaim,claiming));
             ss.push(stmt('INSERT INTO project_links(project_id,work_enabled,work_url,assistant_enabled,assistant_url) VALUES(?,?,?,?,?) ON CONFLICT(project_id) DO UPDATE SET work_enabled=excluded.work_enabled,work_url=excluded.work_url,assistant_enabled=excluded.assistant_enabled,assistant_url=excluded.assistant_url',eid,links.work_enabled,links.work_url,links.assistant_enabled,links.assistant_url));

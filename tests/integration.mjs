@@ -139,6 +139,30 @@ await req('projects',{id:p,name:'QA Project',description:'',status:'active',hour
 const perTask=(await req('tasks',{...body,video_id:'PER-TASK',minutes:0},employee)).j.id;
 let payTask=(await req('workspace',null,admin)).j.tasks.find(t=>t.id===perTask);
 assert.equal(payTask.pay_basis,'TASK');assert.equal(payTask.rate_cents,5000);
+// Project opt-in permits only assigned employees' own per-task approvals.
+const approvalProject={id:p,name:'QA Project',description:'',status:'active',hourly_target:40,rate_cents:5000,pay_basis:'TASK',color:'#647c45',employee_ids:[employeeId]};
+const approveOwn={tasks:[{id:perTask,version:1}]};
+assert.equal((await req('workspace',null,employee)).j.projects.find(x=>x.id===p).employee_approval_enabled,0);
+await req('task-status',approveOwn,employee,403);
+await req('projects',{...approvalProject,employee_approval_enabled:1},employee,403);
+await req('projects',{...approvalProject,employee_approval_enabled:1},admin);
+await req('projects',approvalProject,admin); // Omission preserves the existing option.
+assert.equal((await req('workspace',null,employee)).j.projects.find(x=>x.id===p).employee_approval_enabled,1);
+const adminTask=(await req('tasks',{...body,video_id:'ADMIN-OWN-TASK',minutes:0},admin)).j.id;
+await req('task-status',{tasks:[...approveOwn.tasks,{id:adminTask,version:1}]},employee,403);
+assert.equal((await db.prepare('SELECT status FROM task_entries WHERE id=?').bind(perTask).first()).status,'PENDING');
+await req('task-status',{tasks:[{id:minutesTask,version:1}]},employee,403);
+await db.prepare('DELETE FROM project_assignments WHERE project_id=? AND user_id=?').bind(p,employeeId).run();
+await req('task-status',approveOwn,employee,403);
+await req('projects',approvalProject,admin);
+await req('task-status',approveOwn,employee);
+assert.equal((await db.prepare('SELECT status FROM task_entries WHERE id=?').bind(perTask).first()).status,'APPROVED');
+const employeeApprovalAudit=await db.prepare("SELECT actor_id FROM audit_log WHERE entity_id=? AND action='approved'").bind(perTask).first();
+assert.equal(employeeApprovalAudit.actor_id,employeeId);
+await req('projects',{...approvalProject,employee_approval_enabled:0},admin);
+const disabledTask=(await req('tasks',{...body,video_id:'DISABLED-APPROVAL',minutes:0},employee)).j.id;
+await req('task-status',{tasks:[{id:disabledTask,version:1}]},employee,403);
+await req('task-status',{tasks:[{id:disabledTask,version:1}]},admin);
 await req('projects',{id:p,name:'QA Project',description:'',status:'active',hourly_target:40,rate_cents:20000,pay_basis:'VIDEO_HOUR',color:'#647c45',employee_ids:[employeeId]},admin);
 const perVideo=(await req('tasks',{...body,video_id:'PER-VIDEO',duration:'0:30:00',minutes:0},employee)).j.id;
 await req('tasks',{...body,id:perVideo,version:1,video_id:'PER-VIDEO',duration:'0:30:00',status:'APPROVED'},admin);

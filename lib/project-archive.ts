@@ -51,6 +51,7 @@ export async function projectArchive(actor: {id:string;role:string}, action:'arc
                     'DELETE FROM accounts WHERE project_id=?',
                     'DELETE FROM project_assignments WHERE project_id=?',
                     'DELETE FROM project_time_tracking WHERE project_id=?',
+                    'DELETE FROM project_employee_approval WHERE project_id=?',
                     'DELETE FROM project_client_rates WHERE project_id=?',
                     "DELETE FROM deleted_records WHERE entity='projects' AND entity_id=?",
                     'DELETE FROM projects WHERE id=?',
