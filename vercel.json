@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/cron/sheets",
-      "schedule": "*/5 * * * *"
+      "schedule": "0 0 * * *"
     }
   ],
   "buildCommand": "node scripts/release-phase1.mjs && pnpm build"
