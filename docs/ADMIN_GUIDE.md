@@ -91,3 +91,10 @@ Mass uploads show a row-to-existing-entry duplicate map. Each accessible match h
 
 ### Employee approval for per-task payments
 Administrators can enable **Employee approval** in project settings when **Per task** is selected. It defaults to off. When enabled, assigned employees can approve their own pending or returned unpaid per-task entries, individually or in bulk from Task log. Paid entries and locked weeks cannot be changed. Hourly entries still require coordinator approval, and only administrators can record payments. Disabling the setting prevents future employee approvals without undoing existing approvals.
+
+### Employee onboarding and contracts
+Open **Profile** to import employee accounts in a batch (one `Full name, email` per line) with an initial password. Existing accounts are skipped without changing their names, roles, or passwords. Newly imported employees must set a different personal password before signing. No emails are sent automatically.
+
+Upload the prepared **ACES_Workplace_Contract_Template.pdf** in Profile and confirm the all-employee audience. This private PDF is stored in the database, not the public repository. Only its approved SHA-256 version is accepted. The agreement is assigned to every employee account, including employees added later. Administrators can see signature status and download signed copies, but cannot sign for employees.
+
+The template uses 1504B Victoria Towers, 79 Panay corner Timog Ave., Quezon City and Joshua Dela Cruz, Founder/CEO. The effective date is the contractor's signing date in Asia/Manila. The contractor provides their residential address, reviews the personalized agreement, chooses a typed/drawn/uploaded signature, explicitly consents, and confirms their personal password. The execution page receives the contractor signature; an appended record retains signer identity, consent, method, time, and document version. Signed bytes and hashes are retained and cannot be overwritten. Agency and witness signatures and notarization remain separate.

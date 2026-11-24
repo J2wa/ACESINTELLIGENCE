@@ -45,3 +45,6 @@ Employees can use **Log a task** on an assigned project in Overview to open the 
 
 ### Employee approval for per-task payments
 Administrators can enable **Employee approval** in project settings when **Per task** is selected. It defaults to off. When enabled, assigned employees can approve their own pending or returned unpaid per-task entries, individually or in bulk from Task log. Paid entries and locked weeks cannot be changed. Hourly entries still require coordinator approval, and only administrators can record payments. Disabling the setting prevents future employee approvals without undoing existing approvals.
+
+### Sign your contractor agreement
+Open **Profile**. If you received an initial password, use **Change password** to choose your personal password first. Under **Your contracts**, choose **Review & sign**, enter your residential address, and prepare the agreement. Read all 23 pages and the annexes. Choose **Type my name**, **Draw signature**, or **Upload signature** (PNG/JPEG). Confirm consent and your personal password, then select **Sign agreement** yourself. Download your signed PDF afterward. Your effective date is your signing date in Asia/Manila. The app does not sign for the agency, witness, or notary.
