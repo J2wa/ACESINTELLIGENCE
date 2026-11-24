@@ -18,16 +18,39 @@ try{
  else{const pdf=await PDFDocument.create();for(let i=0;i<23;i++)pdf.addPage([596,842]);template=Buffer.from(await pdf.save());const adminId=(await db.execute("SELECT id FROM users WHERE role='ADMIN'")).rows[0].id;await db.execute({sql:'INSERT INTO contract_templates VALUES(?,?,?,?,?,?)',args:['test-template','Test agreement',template.toString('base64'),TEMPLATE_HASH,adminId,Date.now()]});}
  let d=await(await req('contracts',null,first)).json();assert.equal(d.contracts.length,1);assert(d.requires_password_change);const assignment=d.contracts[0];const other=(await(await req('contracts',null,second)).json()).contracts[0];
  assert.equal((await(await req('contracts',null,admin)).json()).contracts.length,2);
+ const beforeOnboarding = await (await req('workspace',null,first)).json();
+ assert.deepEqual(beforeOnboarding.onboarding, {requires_password_change:true,requires_contract_signature:true});
+ assert.deepEqual(Object.keys(beforeOnboarding).sort(), ['onboarding','user']);
+ await req('tasks',null,first,403);
+ await req('presence',{},first,403);
+ assert(Array.isArray((await (await req('workspace',null,admin)).json()).tasks));
+ const inlinePreview = await req('contracts/document?id='+assignment.id,null,first);
+ assert.equal(inlinePreview.headers.get('content-type'),'application/pdf');
+ assert.match(inlinePreview.headers.get('content-disposition'),/^inline/);
+ assert.equal(inlinePreview.headers.get('cache-control'),'private, no-store');
+ assert.equal((await PDFDocument.load(await inlinePreview.arrayBuffer())).getPageCount(),23);
+ await db.execute({sql:'DELETE FROM user_onboarding WHERE user_id=?',args:[other.user_id]});
+ assert.deepEqual((await (await req('workspace',null,second)).json()).onboarding, {requires_password_change:true,requires_contract_signature:true});
+
  await req('contracts/document?id='+other.id,null,first,404);await req('contracts/preview',{assignment_id:other.id,address:'Somewhere in Manila'},first,404);await req('contracts/document?id='+assignment.id+'&signed=1',null,first,409);
  const signing={assignment_id:assignment.id,address:'123 Example Street, Quezon City',method:'typed',consent:true,template_sha256:TEMPLATE_HASH,password};
  await req('contracts/sign',signing,first,403);
  await req('auth/password',{current_password:password,password},first,400);
  const personal=randomBytes(20).toString('hex');const personalCookie=cookie(await req('auth/password',{current_password:password,password:personal},first));await req('contracts',null,first,401);
  d=await(await req('contracts',null,personalCookie)).json();assert.equal(d.requires_password_change,false);
+ await db.execute({sql:'DELETE FROM user_onboarding WHERE user_id=?',args:[assignment.user_id]});
+ assert.deepEqual((await (await req('workspace',null,personalCookie)).json()).onboarding, {requires_password_change:false,requires_contract_signature:true});
+ await req('tasks',null,personalCookie,403);
+
  await req('contracts/sign',{...signing,password:personal,consent:false},personalCookie,400);await req('contracts/sign',{...signing,password:personal,template_sha256:'0'.repeat(64)},personalCookie,409);await req('contracts/sign',{...signing,password:'incorrect'},personalCookie,403);await req('contracts/sign',{...signing,password:personal,method:'uploaded',signature_png:'invalid'},personalCookie,400);
  await req('contracts/sign',{...signing,password:personal,assignment_id:other.id},personalCookie,404);await req('contracts/sign',signing,admin,403);
  const preview=await req('contracts/preview',{assignment_id:assignment.id,address:signing.address},personalCookie);assert.equal((await PDFDocument.load(await preview.arrayBuffer())).getPageCount(),23);
  const signed=await(await req('contracts/sign',{...signing,password:personal},personalCookie)).json();assert.equal(signed.signed,true);
+ const unlocked = await (await req('workspace',null,personalCookie)).json();
+ assert.equal(unlocked.onboarding,undefined);
+ assert(Array.isArray(unlocked.tasks));
+ await req('tasks',null,personalCookie);
+
  const download=await req('contracts/document?id='+assignment.id+'&signed=1',null,personalCookie);assert.equal(download.headers.get('cache-control'),'private, no-store');const bytes=Buffer.from(await download.arrayBuffer());assert.equal(createHash('sha256').update(bytes).digest('hex'),signed.document_sha256);assert.equal((await PDFDocument.load(bytes)).getPageCount(),24);
  if(process.env.CONTRACT_TEMPLATE_TEST)writeFileSync('/tmp/aces-signed-test.pdf',bytes);
  await req('contracts/sign',{...signing,password:personal},personalCookie,409);await req('contracts/document?id='+assignment.id+'&signed=1',null,admin);

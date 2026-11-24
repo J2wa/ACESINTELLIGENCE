@@ -1,5 +1,5 @@
 'use client';
-import ProfileContracts from '@/components/profile-contracts';
+import ProfileContracts, { EmployeeOnboarding } from '@/components/profile-contracts';
 import AccountCredentials from '@/components/account-credentials';
 import TaskClaims, {ClaimBadge} from '@/components/task-claims';
 import { taskMutationReason } from '@/lib/task-eligibility.mjs';
@@ -163,6 +163,8 @@ export default function Workhub() {
         } catch(error) {setSyncMessage((error as Error).message);} finally {setBusy(false);}
     }
     const [tasksLoading,setTasksLoading] = useState(false);
+    const onboarding = data?.onboarding;
+    const onboardingPending = Boolean(onboarding);
     const taskQuery = '/api/tasks?' + new URLSearchParams({...filters,search,sort,reverse:String(reverse),page:String(tablePage),limit:'25',background:'1'});
     const taskQueryRef = useRef(taskQuery);
     const taskRequestScheduled = useRef(false);
@@ -178,18 +180,18 @@ export default function Workhub() {
         onExpired: () => { setData(null); setAuth(previous => ({...previous,user:null})); setModal(null); setMode('demo'); },
     }), []);
     useEffect(() => {
-        if(mode !== 'live' || page !== 'Task log') return;
+        if(mode !== 'live' || page !== 'Task log' || onboardingPending) return;
         setTasksLoading(true);
         setTaskResult({tasks:[],times:[],summaries:{},total:0});
         taskRequestScheduled.current = true;
         const timer = setTimeout(() => { taskRequestScheduled.current = false; void taskRefresh.refresh().catch(error => setError(error.message)); },150);
         return () => {clearTimeout(timer);taskRequestScheduled.current = false;taskRefresh.invalidate();};
-    },[mode,page,taskQuery,taskRefresh]);
+    },[mode,page,onboardingPending,taskQuery,taskRefresh]);
     // A workspace poll can request fresh rows, but must never cancel an in-flight
     // task page. Query/navigation changes above still supersede stale requests.
     useEffect(() => {
-        if(mode === 'live' && page === 'Task log' && !taskRequestScheduled.current) void taskRefresh.refresh(true).catch(error => setError(error.message));
-    },[data,mode,page,taskRefresh]);
+        if(mode === 'live' && page === 'Task log' && !onboardingPending && !taskRequestScheduled.current) void taskRefresh.refresh(true).catch(error => setError(error.message));
+    },[data,mode,page,onboardingPending,taskRefresh]);
     const spentByTask = useMemo(()=>{
         const totals = new Map<string,number>();
         for(const time of rawTimes) if(time.end_ms) totals.set(time.task_id,(totals.get(time.task_id)??0)+(time.end_ms-time.start_ms)/1000);
@@ -488,6 +490,7 @@ export default function Workhub() {
     if (mode !== 'live') return <main className="signin-page"><section className="signin-card"><img className="aces-logo" src={dark ? '/aces-logo-dark.svg' : '/aces-logo.svg'} alt="Aces Intelligence"/><span className="eyebrow">ACES INTELLIGENCE</span><h1>Welcome to Workhub</h1><p>Sign in to manage your tasks, projects, and working hours.</p><form onSubmit={async e=>{e.preventDefault();setBusy(true);setError('');try{const r=await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(form)});const j:any=await r.json();if(!r.ok)throw new Error(j.error);await reload();setAuth({...auth,user:j.user});setMode('live');setForm({});}catch(e:any){setError(e.message);}finally{setBusy(false);}}}>{<>{field('Email address','email','email',{required:true,autoComplete:'username'})}{field('Password','password','password',{required:true,autoComplete:'current-password'})}<button className="button primary" disabled={busy} type="submit">{busy?<LoadingStatus>Signing in…</LoadingStatus>:'Sign in'}<ArrowRight size={16}/></button></>}{error&&<div role="alert" className="error-inline">{error}</div>}</form><small>Access is managed by your administrator.<br/>All working time uses Asia/Manila.</small></section></main>;
     if (!data)
         return <div className="loading"><img className="aces-logo" src={dark ? '/aces-logo-dark.svg' : '/aces-logo.svg'} alt="Aces Intelligence"/><LoadingStatus>Opening your Workhub…</LoadingStatus></div>;
+    if (onboarding) return <EmployeeOnboarding key={user.id} user={data.user} requirements={onboarding} onReload={reload} onSignOut={signOut} signOutError={error}/>;
     const weekEnd = addDays(week, 6), selectedUser = timeUser || user.id, weekTimes = mineTimes.filter((t: Row) => t.user_id === selectedUser).flatMap((t: Row) => splitDays(t.start_ms, t.end_ms ?? now).filter((d: Row) => d.date >= week && d.date <= weekEnd).map((d: Row) => ({ ...t, ...d }))), weekSheet = data.sheets.find((s: Row) => s.user_id === selectedUser && s.week_start === week), locked = weekSheet && ['SUBMITTED', 'APPROVED'].includes(weekSheet.status);
     const title: Row = { Overview: isAdmin ? 'A clear view of your team.' : 'Make every hour count.', 'Task log': 'Good work, all in one place.', Timesheets: 'Your time, accounted for.', Projects: 'Keep every project moving.', Team: 'The people behind the work.', Payroll: 'Your earnings, payments, and invoices.', 'Company profit': 'Client revenue, employee pay, and gross profit by project.', Profile: 'Your account and agreements.', Settings: 'Make Workhub yours.' };
     return <div className={'app-shell' + (sidebarHidden ? ' sidebar-hidden' : '')}><PresenceHeartbeat userId={mode==='live'?user.id:undefined}/>{compactNavigation && mobile && <button className="sidebar-backdrop" aria-label="Close navigation" tabIndex={-1} onClick={() => setMobile(false)}/>}<aside id="workspace-navigation" ref={navigationRef} className={'sidebar ' + (mobile ? 'mobile-open' : '')} inert={!navigationOpen} role={compactNavigation ? 'dialog' : undefined} aria-modal={compactNavigation && mobile ? true : undefined} aria-label="Workspace navigation"><button className="sidebar-close" onClick={closeNavigation}><PanelLeftClose size={18}/><span>{compactNavigation ? 'Close menu' : 'Hide sidebar'}</span><X size={16}/></button><a className="brand" href="#" onClick={e => { e.preventDefault(); go('Overview'); }}><img className="aces-logo" src={dark ? '/aces-logo-dark.svg' : '/aces-logo.svg'} alt="Aces Intelligence"/></a><div className="workspace-switch"><img className="workspace-icon workspace-logo" src={dark ? '/aces-logo-dark.svg' : '/aces-logo.svg'} alt=""/><div><b>Workhub</b><small>Team workspace</small></div><ChevronDown size={15}/></div><div className="nav-label">WORKSPACE</div><nav>{nav.filter(([n]) => isAdmin || !['Team','Company profit'].includes(n)).map(([n, Icon]) => <button key={n} className={page === n ? 'active' : ''} onClick={() => go(n)}><Icon size={19}/><span>{n}</span>{n === 'Task log' && pending > 0 && <small>{pending}</small>}</button>)}</nav><div className="sidebar-bottom"><label className="timer-preference"><input type="checkbox" checked={hideTimer} onChange={e => toggleTimer(e.target.checked)}/>Hide floating timer</label>{hideTimer && <div className="sidebar-timer"><small className="sidebar-timer-status">{active ? `Running · ${duration((now - active.start_ms) / 1000)}` : "Timer controls"}</small><button className="button primary sidebar-timer-button" disabled={busy || (!active && !timerProjects.length)} onClick={() => { setMobile(false); active ? act("timer", {action:"stop"}, false) : open("timer"); }}>{active ? <Square size={15}/> : <Play size={15}/>} {active ? "Stop timer" : "Start timer"}</button><small className="sidebar-timer-hint">{active ? "Keeps running while hidden." : "Choose a project to track time."}</small></div>}<div className="workspace-note"><span className="online-dot"/>Built for focused work.<p>One team. A little more clarity.</p></div><button className={page === 'Settings' ? 'active' : ''} onClick={() => go('Settings')}><Settings size={19}/>Settings</button><button onClick={() => { setMobile(false); open('help'); }}><HelpCircle size={19}/>Help & quick guide<ArrowUpRight size={15}/></button><div className="user-footer"><Avatar name={user.name}/><div><b>{user.name}</b><small>{isAdmin ? 'Workspace admin' : 'Annotator'}</small></div><button className="icon-button" title="Account settings" onClick={() => go('Settings')}><MoreHorizontal size={18}/></button></div></div></aside>

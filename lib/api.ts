@@ -1,4 +1,4 @@
-import {contractRoute,ensureContracts} from './contracts';
+import {contractRoute,employeeOnboarding,ensureContracts} from './contracts';
 import {ensureEmployeeApproval} from './employee-approval';
 import {returnTask} from './return-task';
 import {snapshot, taskPage} from './workspace';
@@ -161,7 +161,6 @@ export async function handle(req: Request) {
             const b = z.object({ entity:z.enum(['projects','users','invoices','accounts']), id:uid, action:z.enum(['delete','restore']) }).parse(await req.json());
             return json(b.entity==='accounts' ? await changeWorkAccountDeletion(u,b.id,b.action) : await changeDeletion(u,b.entity,b.id,b.action));
         }
-        if (path === 'presence' && method === 'POST') { await recordPresence(req,u.id); return json({saved:true}); }
         if (path === 'admin/presence' && method === 'GET') { admin(u); return json(await presenceList()); }
         if (path === 'auth/logout' && method === 'POST') {
             await stmt('DELETE FROM sessions WHERE token_hash=?', await sha(cookie(req, 'aces_session'))).run();
@@ -178,9 +177,17 @@ export async function handle(req: Request) {
             if (record.password_hash && !await checkPassword(b.current_password, record.password_hash))
                 fail('Current password is incorrect.', 403);
             if (await checkPassword(b.password, record.password_hash)) fail('Choose a password different from your current password.');
-            await DB().batch([stmt('UPDATE users SET password_hash=? WHERE id=?', await hashPassword(b.password), u.id), stmt('UPDATE user_onboarding SET require_password_change=0 WHERE user_id=?',u.id), stmt('DELETE FROM sessions WHERE user_id=?', u.id), audit(u, 'users', u.id, 'password_changed', null, null)]);
+            await DB().batch([stmt('UPDATE users SET password_hash=? WHERE id=?', await hashPassword(b.password), u.id), stmt('INSERT INTO user_onboarding(user_id,require_password_change) VALUES(?,0) ON CONFLICT(user_id) DO UPDATE SET require_password_change=0',u.id), stmt('DELETE FROM sessions WHERE user_id=?', u.id), audit(u, 'users', u.id, 'password_changed', null, null)]);
             return loginResponse(req, u);
         }
+        if (u.role === 'EMPLOYEE') {
+            const onboarding = await employeeOnboarding(u);
+            if (onboarding.requires_password_change || onboarding.requires_contract_signature) {
+                if (path === 'workspace' && method === 'GET') return json({ user: u, onboarding });
+                fail('Complete your employee onboarding before opening the workspace.', 403);
+            }
+        }
+        if (path === 'presence' && method === 'POST') { await recordPresence(req,u.id); return json({saved:true}); }
         if (path === 'workspace' && method === 'GET')
             return json(await snapshot(u, new URL(req.url).searchParams));
         if (path === 'tasks' && method === 'GET') return json(await taskPage(u, new URL(req.url).searchParams));
@@ -527,6 +534,8 @@ export async function handle(req: Request) {
                 fail('Provide an initial password for email sign-in.');
             const hash = b.password ? await hashPassword(b.password) : null;
             const ss = [stmt('INSERT INTO users(id,name,email,role,active,password_hash,created_at) VALUES(?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,email=excluded.email,role=excluded.role,active=excluded.active,password_hash=COALESCE(excluded.password_hash,users.password_hash),google_sub=CASE WHEN excluded.email!=users.email THEN NULL ELSE users.google_sub END', eid, b.name, b.email, b.role, b.active, hash, now), audit(u, 'users', eid, old ? 'updated' : 'created', old, { name: b.name, email: b.email, role: b.role, active: b.active })];
+            if (hash && b.role === 'EMPLOYEE' && (await employeeOnboarding({ id: eid, role: b.role })).requires_contract_signature)
+                ss.push(stmt('INSERT INTO user_onboarding(user_id,require_password_change) VALUES(?,1) ON CONFLICT(user_id) DO UPDATE SET require_password_change=1', eid));
             ss.push(stmt("INSERT INTO sync_jobs(task_id,status,updated_at) SELECT id,'pending',? FROM task_entries WHERE user_id=? ON CONFLICT(task_id) DO UPDATE SET status='pending',updated_at=excluded.updated_at", now, eid));
             if (old)
                 ss.push(stmt('DELETE FROM sessions WHERE user_id=?', eid));

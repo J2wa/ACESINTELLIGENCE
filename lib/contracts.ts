@@ -19,6 +19,34 @@ export const CONTRACT_SCHEMA=[
 ];
 let ready:Promise<unknown>|undefined;
 export async function ensureContracts(){await(ready??=getClient().batch(CONTRACT_SCHEMA,'write').catch(e=>{ready=undefined;throw e;}));}
+export type OnboardingRequirements = { requires_password_change: boolean; requires_contract_signature: boolean };
+
+export async function employeeOnboarding(user: { id: string; role: string }): Promise<OnboardingRequirements> {
+ if (user.role !== 'EMPLOYEE') return { requires_password_change: false, requires_contract_signature: false };
+ await ensureContracts();
+ const status = await one(`
+  WITH requirements AS (
+   SELECT
+    (SELECT require_password_change FROM user_onboarding WHERE user_id = ?) AS temporary_password,
+    EXISTS (
+     SELECT 1 FROM contract_templates t WHERE NOT EXISTS (
+      SELECT 1 FROM contract_assignments a
+      JOIN contract_signatures s ON s.assignment_id = a.id
+      WHERE a.template_id = t.id AND a.user_id = ?
+     )
+    ) AS unsigned_contract
+  )
+  SELECT unsigned_contract, COALESCE(temporary_password, CASE WHEN unsigned_contract THEN NOT EXISTS (
+   SELECT 1 FROM audit_log
+   WHERE actor_id = ? AND entity = 'users' AND entity_id = ? AND action = 'password_changed'
+  ) ELSE 0 END) AS needs_password
+  FROM requirements
+ `, user.id, user.id, user.id, user.id);
+ return {
+  requires_password_change: !!status.needs_password,
+  requires_contract_signature: !!status.unsigned_contract,
+ };
+}
 const digest=(bytes:Uint8Array)=>createHash('sha256').update(bytes).digest('hex');
 const json=(value:unknown)=>Response.json(value,{headers:{'Cache-Control':'private, no-store'}});
 const pdf=(bytes:Uint8Array,name:string,download=false)=>new Response(Buffer.from(bytes),{headers:{'Content-Type':'application/pdf','Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff','Content-Disposition':`${download?'attachment':'inline'}; filename="${name}"`}});
@@ -71,7 +99,7 @@ export async function contractRoute(req:Request,u:any,path:string):Promise<Respo
  }
  if(path==='contracts'&&method==='GET'){
   await assignAll();const contracts=await all(`SELECT a.id,a.user_id,t.title,t.sha256,u.name,u.email,a.assigned_at,s.signed_at,s.method,s.document_sha256 FROM contract_assignments a JOIN contract_templates t ON t.id=a.template_id JOIN users u ON u.id=a.user_id LEFT JOIN contract_signatures s ON s.assignment_id=a.id WHERE ${u.role==='ADMIN'?'1=1':'a.user_id=?'} ORDER BY u.name,a.assigned_at DESC`,...(u.role==='ADMIN'?[]:[u.id]));
-  return json({contracts,consent:CONSENT,requires_password_change:!!(await one('SELECT 1 FROM user_onboarding WHERE user_id=? AND require_password_change=1',u.id)),template_published:!!(await one('SELECT id FROM contract_templates LIMIT 1'))});
+  return json({contracts,consent:CONSENT,requires_password_change:(await employeeOnboarding(u)).requires_password_change,template_published:!!(await one('SELECT id FROM contract_templates LIMIT 1'))});
  }
  if(path==='contracts/preview'&&method==='POST'){
   const b=details.strict().parse(await input(req)),a=await assignment(u,b.assignment_id);return pdf(await renderContract(a,b.address),'contract-preview.pdf');
@@ -79,7 +107,7 @@ export async function contractRoute(req:Request,u:any,path:string):Promise<Respo
  if(path==='contracts/sign'&&method==='POST'){
   const b=details.extend({method:z.enum(['typed','drawn','uploaded']),signature_png:z.string().max(500_000).optional(),consent:z.literal(true),template_sha256:z.string().length(64),password:z.string().min(1).max(128)}).strict().parse(await input(req));
   const a=await assignment(u,b.assignment_id);if(a.user_id!==u.id)fail('Only the assigned contractor may sign.',403);
-  if(await one('SELECT 1 FROM user_onboarding WHERE user_id=? AND require_password_change=1',u.id))fail('Choose a personal password in Settings before signing.',403);
+  if((await employeeOnboarding(u)).requires_password_change)fail('Choose a personal password before signing.',403);
   if(a.sha256!==b.template_sha256)fail('The contract version changed. Review it again.',409);
   if(await one('SELECT 1 FROM contract_signatures WHERE assignment_id=?',a.id))fail('This contract is already signed.',409);
   await throttleLogin(req,'contract-sign:'+u.email);
