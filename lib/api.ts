@@ -1,3 +1,4 @@
+import {contractRoute,ensureContracts} from './contracts';
 import {ensureEmployeeApproval} from './employee-approval';
 import {returnTask} from './return-task';
 import {snapshot, taskPage} from './workspace';
@@ -170,11 +171,14 @@ export async function handle(req: Request) {
             await stmt('DELETE FROM sessions WHERE user_id=? AND token_hash!=?', u.id, await sha(cookie(req, 'aces_session'))).run();
             return json({saved:true});
         }
+        if (path === 'users/bulk' || path === 'contracts' || path.startsWith('contracts/')) return await contractRoute(req,u,path);
         if (path === 'auth/password' && method === 'POST') {
+            await ensureContracts();
             const b = z.object({ current_password: z.string(), password }).parse(await req.json()), record = await one('SELECT password_hash FROM users WHERE id=?', u.id);
             if (record.password_hash && !await checkPassword(b.current_password, record.password_hash))
                 fail('Current password is incorrect.', 403);
-            await DB().batch([stmt('UPDATE users SET password_hash=? WHERE id=?', await hashPassword(b.password), u.id), stmt('DELETE FROM sessions WHERE user_id=?', u.id), audit(u, 'users', u.id, 'password_changed', null, null)]);
+            if (await checkPassword(b.password, record.password_hash)) fail('Choose a password different from your current password.');
+            await DB().batch([stmt('UPDATE users SET password_hash=? WHERE id=?', await hashPassword(b.password), u.id), stmt('UPDATE user_onboarding SET require_password_change=0 WHERE user_id=?',u.id), stmt('DELETE FROM sessions WHERE user_id=?', u.id), audit(u, 'users', u.id, 'password_changed', null, null)]);
             return loginResponse(req, u);
         }
         if (path === 'workspace' && method === 'GET')
