@@ -11,7 +11,7 @@ for(const file of (await files(pub)).filter(f=>f.endsWith('.html'))){
  html=html.replace(/<header[\s\S]*?<\/header>/,()=>header).replace(/<footer[\s\S]*?<\/footer>/,()=>footer);
  if(route==='/'){
   html=html.replace(/<title>.*?<\/title>/,'<title>RLHF, AI Evaluation & Data Annotation Philippines | Aces Intelligence</title>');
-  html=html.replace(/<meta name="description" content="[^"]*">/,'<meta name="description" content="Aces Intelligence: Philippines-based RLHF, model evaluation and multimodal data annotation services. Human expertise. Better AI. Scope a focused pilot.">');
+  html=html.replace(/<meta name="description" content="[^"]*">/,'<meta name="description" content="Philippines-based specialists for AI-assisted annotation, speech and music evaluation, video labeling, and human-reviewed model evaluation.">');
  }
  if(route==='/inquiry')html=html.replace(/<title>.*?<\/title>/,'<title>Get a Quote for AI Data & Evaluation | Aces Intelligence</title>');
  const title=strip(html.match(/<title>(.*?)<\/title>/s)?.[1]||''),description=html.match(/<meta name="description" content="([^"]*)"/)?.[1]||'';
