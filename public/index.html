@@ -202,29 +202,55 @@
           </div>
           <div class="output">
             <div class="output-head">Sample output <em>illustrative</em></div>
-            <p class="sample-input"><strong>Pilot input.</strong> Two voice renders of “Your delivery is scheduled for Friday.” Five listeners rate each clip on a 1–5 naturalness scale.</p>
+            <p class="sample-input"><strong>Pilot input.</strong> Two voice renders of “Your delivery is scheduled for Friday.” Five listeners rate each clip independently, from 1 (very unnatural) to 5 (fully natural).</p>
             <h4 class="sample-subhead" id="speech-mos">Individual clip ratings</h4>
             <div class="output-scroll" role="region" aria-labelledby="speech-mos" tabindex="0">
-              <table class="dtable">
-                <thead><tr><th scope="col">Clip</th><th scope="col">Mean MOS</th><th scope="col">Listening note</th></tr></thead>
-                <tbody>
-                  <tr><td>A</td><td><span class="score"><span class="bar" aria-hidden="true"><i style="--w:88%"></i></span>4.4</span></td><td>The pause before “Friday” sounds natural. Slight sibilance on “scheduled.”</td></tr>
-                  <tr><td>B</td><td><span class="score"><span class="bar" aria-hidden="true"><i style="--w:60%"></i></span>3.0</span></td><td>The final syllable of “Friday” gets unusually strong stress.</td></tr>
+              <table class="dtable" role="table">
+                <thead role="rowgroup"><tr role="row"><th scope="col" role="columnheader">Clip</th><th scope="col" role="columnheader">Listener scores</th><th scope="col" role="columnheader">Mean MOS</th><th scope="col" role="columnheader">Listening note</th></tr></thead>
+                <tbody role="rowgroup">
+                  <tr role="row"><td role="cell" data-label="Clip"><div>Clip A</div></td><td role="cell" data-label="Listener scores"><div>5, 4, 4, 5, 4</div></td><td role="cell" data-label="Mean MOS"><div><span class="score"><span class="bar" aria-hidden="true"><i style="--w:88%"></i></span>4.4</span></div></td><td role="cell" data-label="Listening note"><div>The pause before “Friday” sounds natural. Slight sibilance on “scheduled.”</div></td></tr>
+                  <tr role="row"><td role="cell" data-label="Clip"><div>Clip B</div></td><td role="cell" data-label="Listener scores"><div>3, 3, 4, 2, 3</div></td><td role="cell" data-label="Mean MOS"><div><span class="score"><span class="bar" aria-hidden="true"><i style="--w:60%"></i></span>3.0</span></div></td><td role="cell" data-label="Listening note"><div>The final syllable of “Friday” gets unusually strong stress.</div></td></tr>
                 </tbody>
               </table>
             </div>
             <h4 class="sample-subhead" id="speech-cmos">A/B comparison records (CMOS)</h4>
-            <p class="sample-note">Positive scores favor the first clip, negative scores favor the second, and zero means no preference.</p>
-            <div class="output-scroll" role="region" aria-labelledby="speech-cmos" tabindex="0">
-              <table class="dtable">
-                <thead><tr><th scope="col">Pair</th><th scope="col">Score</th><th scope="col">Preference</th><th scope="col">Reason</th></tr></thead>
-                <tbody>
-                  <tr><td>A / B</td><td class="mono">+1</td><td>A slightly better</td><td>A uses more natural stress on “Friday” than B.</td></tr>
-                  <tr><td>C / D</td><td class="mono">−1</td><td>D slightly better</td><td>D connects the words smoothly. C inserts a pause mid-phrase.</td></tr>
-                  <tr><td>E / F</td><td class="mono">0</td><td>No preference</td><td>Both have comparable pacing and pronunciation, with the same slight end-of-line hiss.</td></tr>
-                </tbody>
-              </table>
-            </div>
+            <p class="sample-note">Each pair maps its clips to Audio A and Audio B. Positive scores favor A, negative scores favor B, and zero means no preference. Scores of +1 and −1 indicate a slight preference in this sample.</p>
+            <ul class="listening-pairs" role="list" aria-labelledby="speech-cmos">
+              <li class="listening-pair">
+                <div class="listening-pair-head">
+                  <h5>Clips A and B</h5>
+                  <span class="cmos-result"><b>+1</b> · Audio A slightly better</span>
+                </div>
+                <p class="listening-script">“Your delivery is scheduled for Friday.”</p>
+                <dl class="listening-notes">
+                  <div><dt>Audio A · Clip A</dt><dd>At 0:02.4, the first syllable of “Friday” carries the expected stress.</dd></div>
+                  <div><dt>Audio B · Clip B</dt><dd>At 0:02.5, the second syllable gets stronger stress, making the word sound less natural.</dd></div>
+                </dl>
+              </li>
+              <li class="listening-pair">
+                <div class="listening-pair-head">
+                  <h5>Clips C and D</h5>
+                  <span class="cmos-result"><b>−1</b> · Audio B slightly better</span>
+                </div>
+                <p class="listening-script">“Please leave the package at the front desk.”</p>
+                <dl class="listening-notes">
+                  <div><dt>Audio A · Clip C</dt><dd>At 0:01.8, a short pause separates “the” from “front desk,” interrupting the phrase.</dd></div>
+                  <div><dt>Audio B · Clip D</dt><dd>“The front desk” flows as one phrase. Both clips are intelligible, so the preference is slight.</dd></div>
+                </dl>
+              </li>
+              <li class="listening-pair">
+                <div class="listening-pair-head">
+                  <h5>Clips E and F</h5>
+                  <span class="cmos-result cmos-tie"><b>0</b> · No preference</span>
+                </div>
+                <p class="listening-script">“Your appointment starts at ten.”</p>
+                <dl class="listening-notes">
+                  <div><dt>Audio A · Clip E</dt><dd>Even pacing and clear pronunciation. A faint hiss follows the last word.</dd></div>
+                  <div><dt>Audio B · Clip F</dt><dd>Pacing and pronunciation match Audio A closely, including the faint hiss at the end.</dd></div>
+                </dl>
+              </li>
+            </ul>
+            <p class="workflow-check"><strong>QA check.</strong> Confirm that the score direction matches the preferred audio and that every tie explains what sounds similar.</p>
             <p class="output-note"><b>Delivered:</b> per-clip mean scores, comparison scores, and listening notes that support each decision.</p>
           </div>
         </div>
@@ -237,6 +263,7 @@
           <div class="output">
             <div class="output-head">Sample output <em>illustrative</em></div>
             <p class="sample-input"><strong>Pilot input.</strong> A 10-second clip at 30 frames per second. A person picks up a jug, pours water, and sets the jug down.</p>
+            <p class="sample-note timeline-hint">Scroll the timeline to see all frames.</p>
             <div class="output-scroll" role="region" aria-label="Draft and reviewed action timeline" tabindex="0">
               <div class="timeline">
                 <div class="tl-ruler"><span>00:00</span><span>00:02</span><span>00:04</span><span>00:06</span><span>00:08</span><span>00:10</span></div>
@@ -251,15 +278,16 @@
             <h4 class="sample-subhead" id="video-frames">Second-pass frame check</h4>
             <p class="sample-note">Frame 0 marks the start. Ranges include both endpoints. Timecodes use minutes:seconds:frames.</p>
             <div class="output-scroll" role="region" aria-labelledby="video-frames" tabindex="0">
-              <table class="dtable">
-                <thead><tr><th scope="col">Action</th><th scope="col">Draft frames</th><th scope="col">Verified frames</th><th scope="col">Verified timecode</th><th scope="col">Boundary evidence</th></tr></thead>
-                <tbody>
-                  <tr><td>Pick up</td><td class="mono">33–98</td><td class="mono">36–95</td><td class="mono">00:01:06–00:03:05</td><td>Jug lifts off the counter and steadies in the hand.</td></tr>
-                  <tr><td>Pour</td><td class="mono">121–177</td><td class="mono">126–173</td><td class="mono">00:04:06–00:05:23</td><td>First visible stream through the final visible drop.</td></tr>
-                  <tr><td>Place</td><td class="mono">201–248</td><td class="mono">204–245</td><td class="mono">00:06:24–00:08:05</td><td>Jug moves down toward the counter and comes to rest.</td></tr>
+              <table class="dtable dtable-video" role="table">
+                <thead role="rowgroup"><tr role="row"><th scope="col" role="columnheader">Action</th><th scope="col" role="columnheader">Draft frames</th><th scope="col" role="columnheader">Verified frames</th><th scope="col" role="columnheader">Verified timecode</th><th scope="col" role="columnheader">Boundary evidence</th></tr></thead>
+                <tbody role="rowgroup">
+                  <tr role="row"><td role="cell" data-label="Action"><div>Pick up</div></td><td class="mono" role="cell" data-label="Draft frames"><div>33–98</div></td><td class="mono" role="cell" data-label="Verified frames"><div>36–95</div></td><td class="mono" role="cell" data-label="Verified timecode"><div>00:01:06–00:03:05</div></td><td role="cell" data-label="Boundary evidence"><div>Jug lifts off the counter and steadies in the hand.</div></td></tr>
+                  <tr role="row"><td role="cell" data-label="Action"><div>Pour</div></td><td class="mono" role="cell" data-label="Draft frames"><div>121–177</div></td><td class="mono" role="cell" data-label="Verified frames"><div>126–173</div></td><td class="mono" role="cell" data-label="Verified timecode"><div>00:04:06–00:05:23</div></td><td role="cell" data-label="Boundary evidence"><div>First visible stream through the final visible drop.</div></td></tr>
+                  <tr role="row"><td role="cell" data-label="Action"><div>Place</div></td><td class="mono" role="cell" data-label="Draft frames"><div>201–248</div></td><td class="mono" role="cell" data-label="Verified frames"><div>204–245</div></td><td class="mono" role="cell" data-label="Verified timecode"><div>00:06:24–00:08:05</div></td><td role="cell" data-label="Boundary evidence"><div>Jug moves down toward the counter and comes to rest.</div></td></tr>
                 </tbody>
               </table>
             </div>
+            <p class="workflow-check"><strong>QA check.</strong> When boundary labels differ, the second reviewer steps through the adjacent frames and records the visual cue that supports the final frame.</p>
             <p class="output-note"><b>Delivered:</b> action labels, double-checked frame ranges and timecodes, and visibility flags.</p>
           </div>
         </div>
@@ -274,16 +302,17 @@
             <p class="sample-input"><strong>Pilot input.</strong> A 50.4-second indie-pop excerpt with vocals, guitar, bass, drums, and a synth pad.</p>
             <h4 class="sample-subhead" id="music-sections">Section annotations</h4>
             <div class="output-scroll" role="region" aria-labelledby="music-sections" tabindex="0">
-              <table class="dtable">
-                <thead><tr><th scope="col">Section</th><th scope="col">Time range</th><th scope="col">Instrument tags</th><th scope="col">Mood and tempo</th></tr></thead>
-                <tbody>
-                  <tr><td>Verse</td><td class="mono">0:00.0–0:12.0</td><td>Clean guitar, bass, light drums</td><td>Reflective, 100 beats per minute (BPM)</td></tr>
-                  <tr><td>Chorus</td><td class="mono">0:12.0–0:31.2</td><td>Layered guitars, bass, full drum kit</td><td>Upbeat, 100 BPM with a denser rhythm</td></tr>
-                  <tr><td>Bridge</td><td class="mono">0:31.2–0:50.4</td><td>Synth pad, bass, sparse drums</td><td>Subdued, 100 BPM with a half-time feel</td></tr>
+              <table class="dtable" role="table">
+                <thead role="rowgroup"><tr role="row"><th scope="col" role="columnheader">Section</th><th scope="col" role="columnheader">Time range</th><th scope="col" role="columnheader">Instrument tags</th><th scope="col" role="columnheader">Mood and tempo</th></tr></thead>
+                <tbody role="rowgroup">
+                  <tr role="row"><td role="cell" data-label="Section"><div>Verse</div></td><td class="mono" role="cell" data-label="Time range"><div>0:00.0–0:12.0</div></td><td role="cell" data-label="Instrument tags"><div>Clean guitar, bass, light drums</div></td><td role="cell" data-label="Mood and tempo"><div>Reflective, 100 beats per minute (BPM)</div></td></tr>
+                  <tr role="row"><td role="cell" data-label="Section"><div>Chorus</div></td><td class="mono" role="cell" data-label="Time range"><div>0:12.0–0:31.2</div></td><td role="cell" data-label="Instrument tags"><div>Layered guitars, bass, full drum kit</div></td><td role="cell" data-label="Mood and tempo"><div>Upbeat, 100 BPM with a denser rhythm</div></td></tr>
+                  <tr role="row"><td role="cell" data-label="Section"><div>Bridge</div></td><td class="mono" role="cell" data-label="Time range"><div>0:31.2–0:50.4</div></td><td role="cell" data-label="Instrument tags"><div>Synth pad, bass, sparse drums</div></td><td role="cell" data-label="Mood and tempo"><div>Subdued, 100 BPM with a half-time feel</div></td></tr>
                 </tbody>
               </table>
             </div>
             <div class="rationale"><small>Boundary correction</small>The bridge starts at <strong>0:31.2</strong>, where the synth pad enters and the drum pattern opens up. The draft marked it at 0:32.0.</div>
+            <p class="workflow-check"><strong>QA check.</strong> Confirm each transition against an audible change, such as a new instrument entry or drum pattern. A half-time feel can change the mood while the measured tempo stays at 100 BPM.</p>
             <p class="output-note"><b>Delivered:</b> a timestamped section map, instrument tags, and section-level mood and tempo notes.</p>
           </div>
         </div>
@@ -314,14 +343,15 @@
             <h4 class="sample-subhead" id="image-boxes">Box coordinates and review flags</h4>
             <p class="sample-note">Coordinates are in pixels, from the top-left corner to the bottom-right corner.</p>
             <div class="output-scroll" role="region" aria-labelledby="image-boxes" tabindex="0">
-              <table class="dtable">
-                <thead><tr><th scope="col">Draft</th><th scope="col">Reviewer update</th><th scope="col">Status</th></tr></thead>
-                <tbody>
-                  <tr><td>Parcel<br><span class="mono">(120, 90)–(540, 510)</span></td><td>Tighten the box to <span class="mono">(160, 120)–(460, 480)</span> to exclude empty counter space.</td><td><span class="pill ok">Verified</span></td></tr>
-                  <tr><td>Bottle<br><span class="mono">(680, 330)–(840, 450)</span></td><td>Only the top is visible. Keep the region for review and withhold the class label.</td><td><span class="pill fix">Flagged</span></td></tr>
+              <table class="dtable" role="table">
+                <thead role="rowgroup"><tr role="row"><th scope="col" role="columnheader">Draft</th><th scope="col" role="columnheader">Reviewer update</th><th scope="col" role="columnheader">Status</th></tr></thead>
+                <tbody role="rowgroup">
+                  <tr role="row"><td role="cell" data-label="Draft"><div>Parcel<br><span class="mono">(120, 90)–(540, 510)</span></div></td><td role="cell" data-label="Reviewer update"><div>Tighten the box to <span class="mono">(160, 120)–(460, 480)</span> to exclude empty counter space.</div></td><td role="cell" data-label="Status"><div><span class="pill ok">Verified</span></div></td></tr>
+                  <tr role="row"><td role="cell" data-label="Draft"><div>Bottle<br><span class="mono">(680, 330)–(840, 450)</span></div></td><td role="cell" data-label="Reviewer update"><div>Only the top is visible. Keep the region for review and withhold the class label.</div></td><td role="cell" data-label="Status"><div><span class="pill fix">Flagged</span></div></td></tr>
                 </tbody>
               </table>
             </div>
+            <p class="workflow-check"><strong>QA check.</strong> Check every edge against the visible object. Keep the crop and location of an ambiguous object in the review queue so a second reviewer can inspect the same region.</p>
             <p class="output-note"><b>Delivered:</b> verified labels, tight bounding boxes, and an exception list for unresolved objects.</p>
           </div>
         </div>
@@ -356,6 +386,7 @@
             </div>
             <div class="rationale"><small>Ranking rationale</small>A gets the format and page right but omits the Export step. B adds unsupported PDF export and points to the wrong page.</div>
             <div class="rationale"><small>Rewritten answer</small>“CSV is the only supported format. Open Reports, select Export, then choose CSV.”</div>
+            <p class="workflow-check"><strong>QA check.</strong> Grounding checks facts against the guide. Completeness checks both parts of the question. Clarity checks whether the instructions are easy to follow. With equal weights, A earns 14 out of 15 and B earns 8 out of 15.</p>
             <p class="output-note"><b>Delivered:</b> criterion-level scores, a ranked pair with rationale, and a corrected training answer.</p>
           </div>
         </div>
@@ -374,17 +405,18 @@
             </dl>
             <h4 class="sample-subhead" id="medical-claims">Claim audit</h4>
             <div class="output-scroll" role="region" aria-labelledby="medical-claims" tabindex="0">
-              <table class="dtable">
-                <thead><tr><th scope="col">Draft claim</th><th scope="col">Source</th><th scope="col">Reviewer finding</th></tr></thead>
-                <tbody>
-                  <tr><td>Pain after walking</td><td class="mono">L1</td><td>Supported. Keep the activity and symptom.</td></tr>
-                  <tr><td>Right knee</td><td class="mono">L1</td><td>Contradicted. Change right to left.</td></tr>
-                  <tr><td>Swelling present</td><td class="mono">L2</td><td>Contradicted. The note records no observed swelling.</td></tr>
-                  <tr><td>Unable to climb stairs</td><td>None</td><td>Unsupported. The supplied note does not address stairs. Remove the claim.</td></tr>
+              <table class="dtable" role="table">
+                <thead role="rowgroup"><tr role="row"><th scope="col" role="columnheader">Draft claim</th><th scope="col" role="columnheader">Source</th><th scope="col" role="columnheader">Reviewer finding</th></tr></thead>
+                <tbody role="rowgroup">
+                  <tr role="row"><td role="cell" data-label="Draft claim"><div>Pain after walking</div></td><td class="mono" role="cell" data-label="Source"><div>L1</div></td><td role="cell" data-label="Reviewer finding"><div>Supported. Keep the activity and symptom.</div></td></tr>
+                  <tr role="row"><td role="cell" data-label="Draft claim"><div>Right knee</div></td><td class="mono" role="cell" data-label="Source"><div>L1</div></td><td role="cell" data-label="Reviewer finding"><div>Contradicted. Change right to left.</div></td></tr>
+                  <tr role="row"><td role="cell" data-label="Draft claim"><div>Swelling present</div></td><td class="mono" role="cell" data-label="Source"><div>L2</div></td><td role="cell" data-label="Reviewer finding"><div>Contradicted. The note records no observed swelling.</div></td></tr>
+                  <tr role="row"><td role="cell" data-label="Draft claim"><div>Unable to climb stairs</div></td><td role="cell" data-label="Source"><div>None</div></td><td role="cell" data-label="Reviewer finding"><div>Unsupported. The supplied note does not address stairs. Remove the claim.</div></td></tr>
                 </tbody>
               </table>
             </div>
             <div class="rationale"><small>Corrected summary</small>“The patient reported left knee pain after walking [L1]. No swelling was observed [L2].”</div>
+            <p class="workflow-check"><strong>QA check.</strong> Preserve whether the note reports a patient’s symptom or documents an observation. Record the exact source line for each retained claim.</p>
             <p class="output-note"><b>Delivered:</b> a corrected summary, line-level citations, and a log of contradicted or unsupported claims.</p>
           </div>
         </div>
@@ -403,16 +435,17 @@
             </dl>
             <h4 class="sample-subhead" id="legal-claims">Clause-level findings</h4>
             <div class="output-scroll" role="region" aria-labelledby="legal-claims" tabindex="0">
-              <table class="dtable">
-                <thead><tr><th scope="col">Draft claim</th><th scope="col">Exact clause</th><th scope="col">Reviewer finding</th></tr></thead>
-                <tbody>
-                  <tr><td>Either party may terminate</td><td class="mono">§ 8.1</td><td>Supported. Preserve the right for both parties.</td></tr>
-                  <tr><td>60 days’ notice</td><td class="mono">§ 8.1</td><td>Correct to 30 days and restore the written-notice requirement.</td></tr>
-                  <tr><td>Notice by email</td><td class="mono">§ 11.2</td><td>Replace with tracked mail to the receiving party’s Schedule A address.</td></tr>
+              <table class="dtable" role="table">
+                <thead role="rowgroup"><tr role="row"><th scope="col" role="columnheader">Draft claim</th><th scope="col" role="columnheader">Exact clause</th><th scope="col" role="columnheader">Reviewer finding</th></tr></thead>
+                <tbody role="rowgroup">
+                  <tr role="row"><td role="cell" data-label="Draft claim"><div>Either party may terminate</div></td><td class="mono" role="cell" data-label="Exact clause"><div>§ 8.1</div></td><td role="cell" data-label="Reviewer finding"><div>Supported. Preserve the right for both parties.</div></td></tr>
+                  <tr role="row"><td role="cell" data-label="Draft claim"><div>60 days’ notice</div></td><td class="mono" role="cell" data-label="Exact clause"><div>§ 8.1</div></td><td role="cell" data-label="Reviewer finding"><div>Correct to 30 days and restore the written-notice requirement.</div></td></tr>
+                  <tr role="row"><td role="cell" data-label="Draft claim"><div>Notice by email</div></td><td class="mono" role="cell" data-label="Exact clause"><div>§ 11.2</div></td><td role="cell" data-label="Reviewer finding"><div>Replace with tracked mail to the receiving party’s Schedule A address.</div></td></tr>
                 </tbody>
               </table>
             </div>
             <div class="rationale"><small>Cited rewrite</small>“Either party may terminate on 30 days’ written notice (§ 8.1). Send the notice by tracked mail to the receiving party’s address in Schedule A (§ 11.2).”</div>
+            <p class="workflow-check"><strong>QA check.</strong> Check the right to terminate, the notice period, and the delivery method separately. Each correction cites the clause that governs that detail.</p>
             <p class="output-note"><b>Delivered:</b> a claim-by-claim review, exact clause citations, and a corrected contract summary.</p>
           </div>
         </div>
