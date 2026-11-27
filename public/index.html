@@ -196,258 +196,456 @@
 
       <div class="panels">
         <!-- Speech -->
-        <div class="panel" id="panel-speech">
+        <div class="panel" id="panel-speech" data-wf-deck>
           <div class="panel-copy">
-            <h3>Speech</h3>
-            <p>Rate each clip for naturalness using Mean Opinion Score (MOS). In a separate A/B test, compare versions of the same utterance and record an audible reason for every preference or tie.</p>
+            <div class="panel-head-row">
+              <h3>Speech</h3>
+              <span class="output-badge">Illustrative</span>
+            </div>
+            <p>Rate each clip for naturalness using Mean Opinion Score (MOS), then run A/B listening comparisons with audible reasons for every preference or tie.</p>
           </div>
           <div class="output">
-            <div class="output-head">Sample output <em>illustrative</em></div>
-            <p class="sample-input"><strong>Pilot input.</strong> Two voice renders of “Your delivery is scheduled for Friday.” Five listeners rate each clip independently, from 1 (very unnatural) to 5 (fully natural).</p>
-            <h4 class="sample-subhead" id="speech-mos">Individual clip ratings</h4>
-            <div class="output-scroll" role="region" aria-labelledby="speech-mos" tabindex="0">
-              <table class="dtable" role="table">
-                <thead role="rowgroup"><tr role="row"><th scope="col" role="columnheader">Clip</th><th scope="col" role="columnheader">Listener scores</th><th scope="col" role="columnheader">Mean MOS</th><th scope="col" role="columnheader">Listening note</th></tr></thead>
-                <tbody role="rowgroup">
-                  <tr role="row"><td role="cell" data-label="Clip"><div>Clip A</div></td><td role="cell" data-label="Listener scores"><div>5, 4, 4, 5, 4</div></td><td role="cell" data-label="Mean MOS"><div><span class="score"><span class="bar" aria-hidden="true"><i style="--w:88%"></i></span>4.4</span></div></td><td role="cell" data-label="Listening note"><div>The pause before “Friday” sounds natural. Slight sibilance on “scheduled.”</div></td></tr>
-                  <tr role="row"><td role="cell" data-label="Clip"><div>Clip B</div></td><td role="cell" data-label="Listener scores"><div>3, 3, 4, 2, 3</div></td><td role="cell" data-label="Mean MOS"><div><span class="score"><span class="bar" aria-hidden="true"><i style="--w:60%"></i></span>3.0</span></div></td><td role="cell" data-label="Listening note"><div>The final syllable of “Friday” gets unusually strong stress.</div></td></tr>
-                </tbody>
-              </table>
+            <div class="wf-bar" data-wf-bar hidden>
+              <div class="wf-steps" role="tablist" aria-label="Speech workflow steps">
+                <button type="button" class="wf-step" data-wf-step="0" role="tab" aria-selected="true"><span class="wf-step-num">01</span>Input &amp; MOS</button>
+                <button type="button" class="wf-step" data-wf-step="1" role="tab" aria-selected="false" tabindex="-1"><span class="wf-step-num">02</span>A/B CMOS</button>
+                <button type="button" class="wf-step" data-wf-step="2" role="tab" aria-selected="false" tabindex="-1"><span class="wf-step-num">03</span>QA &amp; Output</button>
+              </div>
+              <div class="wf-nav">
+                <button type="button" class="wf-btn" data-wf-prev aria-label="Previous step">←</button>
+                <button type="button" class="wf-btn wf-btn-flip" data-wf-next aria-label="Flip to next step">Flip <span aria-hidden="true">↻</span></button>
+                <button type="button" class="wf-btn wf-btn-play" data-wf-toggle aria-pressed="false" aria-label="Pause auto-flip">Pause</button>
+              </div>
             </div>
-            <h4 class="sample-subhead" id="speech-cmos">A/B comparison records (CMOS)</h4>
-            <p class="sample-note">Each pair maps its clips to Audio A and Audio B. Positive scores favor A, negative scores favor B, and zero means no preference. Scores of +1 and −1 indicate a slight preference in this sample.</p>
-            <ul class="listening-pairs" role="list" aria-labelledby="speech-cmos">
-              <li class="listening-pair">
-                <div class="listening-pair-head">
-                  <h5>Clips A and B</h5>
-                  <span class="cmos-result"><b>+1</b> · Audio A slightly better</span>
+            <div class="wf-stage" data-wf-stage>
+              <div class="wf-face is-active" data-wf-face="0" data-wf-title="Input &amp; MOS">
+                <p class="sample-input"><strong>Pilot input.</strong> Two voice renders of “Your delivery is scheduled for Friday.” Five listeners rate each clip independently, from 1 (very unnatural) to 5 (fully natural).</p>
+                <h4 class="sample-subhead" id="speech-mos">Individual clip ratings</h4>
+                <div class="output-scroll" role="region" aria-labelledby="speech-mos" tabindex="0">
+                  <table class="dtable" role="table">
+                    <thead role="rowgroup"><tr role="row"><th scope="col" role="columnheader">Clip</th><th scope="col" role="columnheader">Listener scores</th><th scope="col" role="columnheader">Mean MOS</th><th scope="col" role="columnheader">Listening note</th></tr></thead>
+                    <tbody role="rowgroup">
+                      <tr role="row"><td role="cell" data-label="Clip"><div>Clip A</div></td><td role="cell" data-label="Listener scores"><div>5, 4, 4, 5, 4</div></td><td role="cell" data-label="Mean MOS"><div><span class="score"><span class="bar" aria-hidden="true"><i style="--w:88%"></i></span>4.4</span></div></td><td role="cell" data-label="Listening note"><div>The pause before “Friday” sounds natural. Slight sibilance on “scheduled.”</div></td></tr>
+                      <tr role="row"><td role="cell" data-label="Clip"><div>Clip B</div></td><td role="cell" data-label="Listener scores"><div>3, 3, 4, 2, 3</div></td><td role="cell" data-label="Mean MOS"><div><span class="score"><span class="bar" aria-hidden="true"><i style="--w:60%"></i></span>3.0</span></div></td><td role="cell" data-label="Listening note"><div>The final syllable of “Friday” gets unusually strong stress.</div></td></tr>
+                    </tbody>
+                  </table>
                 </div>
-                <p class="listening-script">“Your delivery is scheduled for Friday.”</p>
-                <dl class="listening-notes">
-                  <div><dt>Audio A · Clip A</dt><dd>At 0:02.4, the first syllable of “Friday” carries the expected stress.</dd></div>
-                  <div><dt>Audio B · Clip B</dt><dd>At 0:02.5, the second syllable gets stronger stress, making the word sound less natural.</dd></div>
-                </dl>
-              </li>
-              <li class="listening-pair">
-                <div class="listening-pair-head">
-                  <h5>Clips C and D</h5>
-                  <span class="cmos-result"><b>−1</b> · Audio B slightly better</span>
+              </div>
+              <div class="wf-face" data-wf-face="1" data-wf-title="A/B comparison (CMOS)">
+                <h4 class="sample-subhead" id="speech-cmos">A/B comparison records (CMOS)</h4>
+                <p class="sample-note">Positive scores favor Audio A, negative favor Audio B, and 0 means no preference (+1 / −1 indicate a slight preference).</p>
+                <ul class="listening-pairs" role="list" aria-labelledby="speech-cmos">
+                  <li class="listening-pair">
+                    <div class="listening-pair-head"><h5>Clips A &amp; B <span>· “Your delivery is scheduled for Friday.”</span></h5><span class="cmos-result"><b>+1</b> · Audio A slightly better</span></div>
+                    <dl class="listening-notes">
+                      <div><dt>Audio A · Clip A</dt><dd>At 0:02.4, the first syllable of “Friday” carries expected stress.</dd></div>
+                      <div><dt>Audio B · Clip B</dt><dd>At 0:02.5, stronger stress on the second syllable sounds less natural.</dd></div>
+                    </dl>
+                  </li>
+                  <li class="listening-pair">
+                    <div class="listening-pair-head"><h5>Clips C &amp; D <span>· “Please leave the package at the front desk.”</span></h5><span class="cmos-result"><b>−1</b> · Audio B slightly better</span></div>
+                    <dl class="listening-notes">
+                      <div><dt>Audio A · Clip C</dt><dd>At 0:01.8, a short pause interrupts “the front desk.”</dd></div>
+                      <div><dt>Audio B · Clip D</dt><dd>“The front desk” flows as one phrase; slight preference overall.</dd></div>
+                    </dl>
+                  </li>
+                  <li class="listening-pair">
+                    <div class="listening-pair-head"><h5>Clips E &amp; F <span>· “Your appointment starts at ten.”</span></h5><span class="cmos-result cmos-tie"><b>0</b> · No preference</span></div>
+                    <dl class="listening-notes">
+                      <div><dt>Audio A · Clip E</dt><dd>Even pacing and clear pronunciation with a faint trailing hiss.</dd></div>
+                      <div><dt>Audio B · Clip F</dt><dd>Matches Audio A closely in pacing, clarity, and faint trailing hiss.</dd></div>
+                    </dl>
+                  </li>
+                </ul>
+              </div>
+              <div class="wf-face" data-wf-face="2" data-wf-title="QA &amp; Deliverable">
+                <div class="wf-deliverable">
+                  <div class="rationale"><small>Pilot deliverable</small>Per-clip mean MOS ratings, paired CMOS comparison scores, and timestamped listening notes supporting every preference or tie.</div>
+                  <p class="workflow-check"><strong>QA check.</strong> Confirm that the score direction matches the preferred audio and that every tie explains what sounds similar.</p>
                 </div>
-                <p class="listening-script">“Please leave the package at the front desk.”</p>
-                <dl class="listening-notes">
-                  <div><dt>Audio A · Clip C</dt><dd>At 0:01.8, a short pause separates “the” from “front desk,” interrupting the phrase.</dd></div>
-                  <div><dt>Audio B · Clip D</dt><dd>“The front desk” flows as one phrase. Both clips are intelligible, so the preference is slight.</dd></div>
-                </dl>
-              </li>
-              <li class="listening-pair">
-                <div class="listening-pair-head">
-                  <h5>Clips E and F</h5>
-                  <span class="cmos-result cmos-tie"><b>0</b> · No preference</span>
-                </div>
-                <p class="listening-script">“Your appointment starts at ten.”</p>
-                <dl class="listening-notes">
-                  <div><dt>Audio A · Clip E</dt><dd>Even pacing and clear pronunciation. A faint hiss follows the last word.</dd></div>
-                  <div><dt>Audio B · Clip F</dt><dd>Pacing and pronunciation match Audio A closely, including the faint hiss at the end.</dd></div>
-                </dl>
-              </li>
-            </ul>
-            <p class="workflow-check"><strong>QA check.</strong> Confirm that the score direction matches the preferred audio and that every tie explains what sounds similar.</p>
-            <p class="output-note"><b>Delivered:</b> per-clip mean scores, comparison scores, and listening notes that support each decision.</p>
+              </div>
+            </div>
+            <div class="wf-foot" data-wf-foot hidden>
+              <span class="wf-counter" data-wf-counter>Step 1 of 3</span>
+              <div class="wf-progress" aria-hidden="true"><i data-wf-progress></i></div>
+              <button type="button" class="wf-next-link" data-wf-next-link>Next step →</button>
+            </div>
           </div>
         </div>
+
         <!-- Video -->
-        <div class="panel" id="panel-video">
+        <div class="panel" id="panel-video" data-wf-deck>
           <div class="panel-copy">
-            <h3>Video</h3>
-            <p>Check each action against the footage frame by frame. A second reviewer verifies the start and end frames and records what is visible when an interaction is obscured.</p>
+            <div class="panel-head-row">
+              <h3>Video</h3>
+              <span class="output-badge">Illustrative</span>
+            </div>
+            <p>Check each action against the footage frame by frame. A second reviewer verifies start and end frames and logs visibility flags when interactions are obscured.</p>
           </div>
           <div class="output">
-            <div class="output-head">Sample output <em>illustrative</em></div>
-            <p class="sample-input"><strong>Pilot input.</strong> A 10-second clip at 30 frames per second. A person picks up a jug, pours water, and sets the jug down.</p>
-            <p class="sample-note timeline-hint">Scroll the timeline to see all frames.</p>
-            <div class="output-scroll" role="region" aria-label="Draft and reviewed action timeline" tabindex="0">
-              <div class="timeline">
-                <div class="tl-ruler"><span>00:00</span><span>00:02</span><span>00:04</span><span>00:06</span><span>00:08</span><span>00:10</span></div>
-                <div class="tl-body">
-                  <div class="tl-row"><span>AI draft</span><div class="tl-track"><span class="seg ai" style="--s:11%;--w:22%">Pick up</span><span class="seg ai" style="--s:40.33%;--w:19%">Pour</span><span class="seg ai" style="--s:67%;--w:16%">Place</span></div></div>
-                  <div class="tl-row"><span>Verified</span><div class="tl-track"><span class="seg" style="--s:12%;--w:20%">Pick up</span><span class="seg" style="--s:42%;--w:16%">Pour</span><span class="seg" style="--s:68%;--w:14%">Place</span></div></div>
-                  <div class="tl-row"><span>Flags</span><div class="tl-track"><span class="seg flag" style="--s:52.33%;--w:3%" role="img" aria-label="Grip hidden at frames 157 to 165"></span></div></div>
+            <div class="wf-bar" data-wf-bar hidden>
+              <div class="wf-steps" role="tablist" aria-label="Video workflow steps">
+                <button type="button" class="wf-step" data-wf-step="0" role="tab" aria-selected="true"><span class="wf-step-num">01</span>Timeline</button>
+                <button type="button" class="wf-step" data-wf-step="1" role="tab" aria-selected="false" tabindex="-1"><span class="wf-step-num">02</span>Frame Check</button>
+                <button type="button" class="wf-step" data-wf-step="2" role="tab" aria-selected="false" tabindex="-1"><span class="wf-step-num">03</span>QA &amp; Output</button>
+              </div>
+              <div class="wf-nav">
+                <button type="button" class="wf-btn" data-wf-prev aria-label="Previous step">←</button>
+                <button type="button" class="wf-btn wf-btn-flip" data-wf-next aria-label="Flip to next step">Flip <span aria-hidden="true">↻</span></button>
+                <button type="button" class="wf-btn wf-btn-play" data-wf-toggle aria-pressed="false" aria-label="Pause auto-flip">Pause</button>
+              </div>
+            </div>
+            <div class="wf-stage" data-wf-stage>
+              <div class="wf-face is-active" data-wf-face="0" data-wf-title="Draft vs verified timeline">
+                <p class="sample-input"><strong>Pilot input.</strong> A 10-second clip at 30 frames per second. A person picks up a jug, pours water, and sets the jug down.</p>
+                <p class="sample-note timeline-hint">Scroll the timeline to see all frames.</p>
+                <div class="output-scroll" role="region" aria-label="Draft and reviewed action timeline" tabindex="0">
+                  <div class="timeline">
+                    <div class="tl-ruler"><span>00:00</span><span>00:02</span><span>00:04</span><span>00:06</span><span>00:08</span><span>00:10</span></div>
+                    <div class="tl-body">
+                      <div class="tl-row"><span>AI draft</span><div class="tl-track"><span class="seg ai" style="--s:11%;--w:22%">Pick up</span><span class="seg ai" style="--s:40.33%;--w:19%">Pour</span><span class="seg ai" style="--s:67%;--w:16%">Place</span></div></div>
+                      <div class="tl-row"><span>Verified</span><div class="tl-track"><span class="seg" style="--s:12%;--w:20%">Pick up</span><span class="seg" style="--s:42%;--w:16%">Pour</span><span class="seg" style="--s:68%;--w:14%">Place</span></div></div>
+                      <div class="tl-row"><span>Flags</span><div class="tl-track"><span class="seg flag" style="--s:52.33%;--w:3%" role="img" aria-label="Grip hidden at frames 157 to 165"></span></div></div>
+                    </div>
+                  </div>
+                </div>
+                <p class="sample-note">The grip is hidden in frames 157–165. The visible stream still supports the pour label.</p>
+              </div>
+              <div class="wf-face" data-wf-face="1" data-wf-title="Second-pass frame check">
+                <h4 class="sample-subhead" id="video-frames">Second-pass frame check</h4>
+                <p class="sample-note">Frame 0 marks the start. Ranges include both endpoints. Timecodes use minutes:seconds:frames.</p>
+                <div class="output-scroll" role="region" aria-labelledby="video-frames" tabindex="0">
+                  <table class="dtable dtable-video" role="table">
+                    <thead role="rowgroup"><tr role="row"><th scope="col" role="columnheader">Action</th><th scope="col" role="columnheader">Draft frames</th><th scope="col" role="columnheader">Verified frames</th><th scope="col" role="columnheader">Verified timecode</th><th scope="col" role="columnheader">Boundary evidence</th></tr></thead>
+                    <tbody role="rowgroup">
+                      <tr role="row"><td role="cell" data-label="Action"><div>Pick up</div></td><td class="mono" role="cell" data-label="Draft frames"><div>33–98</div></td><td class="mono" role="cell" data-label="Verified frames"><div>36–95</div></td><td class="mono" role="cell" data-label="Verified timecode"><div>00:01:06–00:03:05</div></td><td role="cell" data-label="Boundary evidence"><div>Jug lifts off the counter and steadies in the hand.</div></td></tr>
+                      <tr role="row"><td role="cell" data-label="Action"><div>Pour</div></td><td class="mono" role="cell" data-label="Draft frames"><div>121–177</div></td><td class="mono" role="cell" data-label="Verified frames"><div>126–173</div></td><td class="mono" role="cell" data-label="Verified timecode"><div>00:04:06–00:05:23</div></td><td role="cell" data-label="Boundary evidence"><div>First visible stream through the final visible drop.</div></td></tr>
+                      <tr role="row"><td role="cell" data-label="Action"><div>Place</div></td><td class="mono" role="cell" data-label="Draft frames"><div>201–248</div></td><td class="mono" role="cell" data-label="Verified frames"><div>204–245</div></td><td class="mono" role="cell" data-label="Verified timecode"><div>00:06:24–00:08:05</div></td><td role="cell" data-label="Boundary evidence"><div>Jug moves down toward the counter and comes to rest.</div></td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <div class="wf-face" data-wf-face="2" data-wf-title="QA &amp; Deliverable">
+                <div class="wf-deliverable">
+                  <div class="rationale"><small>Pilot deliverable</small>Verified action labels, double-checked frame ranges and timecodes, boundary evidence notes, and occlusion visibility flags.</div>
+                  <p class="workflow-check"><strong>QA check.</strong> When boundary labels differ, the second reviewer steps through adjacent frames and records the visual cue supporting the final frame.</p>
                 </div>
               </div>
             </div>
-            <p class="sample-note">The grip is hidden in frames 157–165. The visible stream still supports the pour label.</p>
-            <h4 class="sample-subhead" id="video-frames">Second-pass frame check</h4>
-            <p class="sample-note">Frame 0 marks the start. Ranges include both endpoints. Timecodes use minutes:seconds:frames.</p>
-            <div class="output-scroll" role="region" aria-labelledby="video-frames" tabindex="0">
-              <table class="dtable dtable-video" role="table">
-                <thead role="rowgroup"><tr role="row"><th scope="col" role="columnheader">Action</th><th scope="col" role="columnheader">Draft frames</th><th scope="col" role="columnheader">Verified frames</th><th scope="col" role="columnheader">Verified timecode</th><th scope="col" role="columnheader">Boundary evidence</th></tr></thead>
-                <tbody role="rowgroup">
-                  <tr role="row"><td role="cell" data-label="Action"><div>Pick up</div></td><td class="mono" role="cell" data-label="Draft frames"><div>33–98</div></td><td class="mono" role="cell" data-label="Verified frames"><div>36–95</div></td><td class="mono" role="cell" data-label="Verified timecode"><div>00:01:06–00:03:05</div></td><td role="cell" data-label="Boundary evidence"><div>Jug lifts off the counter and steadies in the hand.</div></td></tr>
-                  <tr role="row"><td role="cell" data-label="Action"><div>Pour</div></td><td class="mono" role="cell" data-label="Draft frames"><div>121–177</div></td><td class="mono" role="cell" data-label="Verified frames"><div>126–173</div></td><td class="mono" role="cell" data-label="Verified timecode"><div>00:04:06–00:05:23</div></td><td role="cell" data-label="Boundary evidence"><div>First visible stream through the final visible drop.</div></td></tr>
-                  <tr role="row"><td role="cell" data-label="Action"><div>Place</div></td><td class="mono" role="cell" data-label="Draft frames"><div>201–248</div></td><td class="mono" role="cell" data-label="Verified frames"><div>204–245</div></td><td class="mono" role="cell" data-label="Verified timecode"><div>00:06:24–00:08:05</div></td><td role="cell" data-label="Boundary evidence"><div>Jug moves down toward the counter and comes to rest.</div></td></tr>
-                </tbody>
-              </table>
+            <div class="wf-foot" data-wf-foot hidden>
+              <span class="wf-counter" data-wf-counter>Step 1 of 3</span>
+              <div class="wf-progress" aria-hidden="true"><i data-wf-progress></i></div>
+              <button type="button" class="wf-next-link" data-wf-next-link>Next step →</button>
             </div>
-            <p class="workflow-check"><strong>QA check.</strong> When boundary labels differ, the second reviewer steps through the adjacent frames and records the visual cue that supports the final frame.</p>
-            <p class="output-note"><b>Delivered:</b> action labels, double-checked frame ranges and timecodes, and visibility flags.</p>
           </div>
         </div>
+
         <!-- Music -->
-        <div class="panel" id="panel-music">
+        <div class="panel" id="panel-music" data-wf-deck>
           <div class="panel-copy">
-            <h3>Music</h3>
-            <p>Identify section boundaries by ear, tag the instruments audible in each segment, and describe how the mood and tempo develop.</p>
+            <div class="panel-head-row">
+              <h3>Music</h3>
+              <span class="output-badge">Illustrative</span>
+            </div>
+            <p>Identify section boundaries by ear, tag the instruments audible in each segment, and describe how mood and tempo develop across the track.</p>
           </div>
           <div class="output">
-            <div class="output-head">Sample output <em>illustrative</em></div>
-            <p class="sample-input"><strong>Pilot input.</strong> A 50.4-second indie-pop excerpt with vocals, guitar, bass, drums, and a synth pad.</p>
-            <h4 class="sample-subhead" id="music-sections">Section annotations</h4>
-            <div class="output-scroll" role="region" aria-labelledby="music-sections" tabindex="0">
-              <table class="dtable" role="table">
-                <thead role="rowgroup"><tr role="row"><th scope="col" role="columnheader">Section</th><th scope="col" role="columnheader">Time range</th><th scope="col" role="columnheader">Instrument tags</th><th scope="col" role="columnheader">Mood and tempo</th></tr></thead>
-                <tbody role="rowgroup">
-                  <tr role="row"><td role="cell" data-label="Section"><div>Verse</div></td><td class="mono" role="cell" data-label="Time range"><div>0:00.0–0:12.0</div></td><td role="cell" data-label="Instrument tags"><div>Clean guitar, bass, light drums</div></td><td role="cell" data-label="Mood and tempo"><div>Reflective, 100 beats per minute (BPM)</div></td></tr>
-                  <tr role="row"><td role="cell" data-label="Section"><div>Chorus</div></td><td class="mono" role="cell" data-label="Time range"><div>0:12.0–0:31.2</div></td><td role="cell" data-label="Instrument tags"><div>Layered guitars, bass, full drum kit</div></td><td role="cell" data-label="Mood and tempo"><div>Upbeat, 100 BPM with a denser rhythm</div></td></tr>
-                  <tr role="row"><td role="cell" data-label="Section"><div>Bridge</div></td><td class="mono" role="cell" data-label="Time range"><div>0:31.2–0:50.4</div></td><td role="cell" data-label="Instrument tags"><div>Synth pad, bass, sparse drums</div></td><td role="cell" data-label="Mood and tempo"><div>Subdued, 100 BPM with a half-time feel</div></td></tr>
-                </tbody>
-              </table>
+            <div class="wf-bar" data-wf-bar hidden>
+              <div class="wf-steps" role="tablist" aria-label="Music workflow steps">
+                <button type="button" class="wf-step" data-wf-step="0" role="tab" aria-selected="true"><span class="wf-step-num">01</span>Section Map</button>
+                <button type="button" class="wf-step" data-wf-step="1" role="tab" aria-selected="false" tabindex="-1"><span class="wf-step-num">02</span>Correction</button>
+                <button type="button" class="wf-step" data-wf-step="2" role="tab" aria-selected="false" tabindex="-1"><span class="wf-step-num">03</span>QA &amp; Output</button>
+              </div>
+              <div class="wf-nav">
+                <button type="button" class="wf-btn" data-wf-prev aria-label="Previous step">←</button>
+                <button type="button" class="wf-btn wf-btn-flip" data-wf-next aria-label="Flip to next step">Flip <span aria-hidden="true">↻</span></button>
+                <button type="button" class="wf-btn wf-btn-play" data-wf-toggle aria-pressed="false" aria-label="Pause auto-flip">Pause</button>
+              </div>
             </div>
-            <div class="rationale"><small>Boundary correction</small>The bridge starts at <strong>0:31.2</strong>, where the synth pad enters and the drum pattern opens up. The draft marked it at 0:32.0.</div>
-            <p class="workflow-check"><strong>QA check.</strong> Confirm each transition against an audible change, such as a new instrument entry or drum pattern. A half-time feel can change the mood while the measured tempo stays at 100 BPM.</p>
-            <p class="output-note"><b>Delivered:</b> a timestamped section map, instrument tags, and section-level mood and tempo notes.</p>
+            <div class="wf-stage" data-wf-stage>
+              <div class="wf-face is-active" data-wf-face="0" data-wf-title="Section annotations">
+                <p class="sample-input"><strong>Pilot input.</strong> A 50.4-second indie-pop excerpt with vocals, guitar, bass, drums, and a synth pad.</p>
+                <h4 class="sample-subhead" id="music-sections">Section annotations</h4>
+                <div class="output-scroll" role="region" aria-labelledby="music-sections" tabindex="0">
+                  <table class="dtable" role="table">
+                    <thead role="rowgroup"><tr role="row"><th scope="col" role="columnheader">Section</th><th scope="col" role="columnheader">Time range</th><th scope="col" role="columnheader">Instrument tags</th><th scope="col" role="columnheader">Mood and tempo</th></tr></thead>
+                    <tbody role="rowgroup">
+                      <tr role="row"><td role="cell" data-label="Section"><div>Verse</div></td><td class="mono" role="cell" data-label="Time range"><div>0:00.0–0:12.0</div></td><td role="cell" data-label="Instrument tags"><div>Clean guitar, bass, light drums</div></td><td role="cell" data-label="Mood and tempo"><div>Reflective, 100 beats per minute (BPM)</div></td></tr>
+                      <tr role="row"><td role="cell" data-label="Section"><div>Chorus</div></td><td class="mono" role="cell" data-label="Time range"><div>0:12.0–0:31.2</div></td><td role="cell" data-label="Instrument tags"><div>Layered guitars, bass, full drum kit</div></td><td role="cell" data-label="Mood and tempo"><div>Upbeat, 100 BPM with a denser rhythm</div></td></tr>
+                      <tr role="row"><td role="cell" data-label="Section"><div>Bridge</div></td><td class="mono" role="cell" data-label="Time range"><div>0:31.2–0:50.4</div></td><td role="cell" data-label="Instrument tags"><div>Synth pad, bass, sparse drums</div></td><td role="cell" data-label="Mood and tempo"><div>Subdued, 100 BPM with a half-time feel</div></td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <div class="wf-face" data-wf-face="1" data-wf-title="Boundary correction">
+                <div class="wf-deliverable">
+                  <div class="rationale"><small>Boundary correction · 0:32.0 → 0:31.2</small>The bridge starts at <strong>0:31.2</strong>, where the synth pad enters and the drum pattern opens up. The draft marked it 0.8 seconds late at 0:32.0.</div>
+                  <div class="rationale"><small>Tempo vs feel nuance</small>The measured pulse stays at <strong>100 BPM</strong> throughout, while the sparse drums in the bridge create a subdued half-time feel.</div>
+                </div>
+              </div>
+              <div class="wf-face" data-wf-face="2" data-wf-title="QA &amp; Deliverable">
+                <div class="wf-deliverable">
+                  <div class="rationale"><small>Pilot deliverable</small>A timestamped section map, verified instrument tags per segment, boundary correction rationale, and section-level mood and tempo notes.</div>
+                  <p class="workflow-check"><strong>QA check.</strong> Confirm each transition against an audible change, such as a new instrument entry or drum pattern, separating perceived feel from measured BPM.</p>
+                </div>
+              </div>
+            </div>
+            <div class="wf-foot" data-wf-foot hidden>
+              <span class="wf-counter" data-wf-counter>Step 1 of 3</span>
+              <div class="wf-progress" aria-hidden="true"><i data-wf-progress></i></div>
+              <button type="button" class="wf-next-link" data-wf-next-link>Next step →</button>
+            </div>
           </div>
         </div>
+
         <!-- Image -->
-        <div class="panel" id="panel-image">
+        <div class="panel" id="panel-image" data-wf-deck>
           <div class="panel-copy">
-            <h3>Image</h3>
-            <p>Confirm object labels, fit bounding boxes to the visible edges, and flag uncertain objects for another reviewer.</p>
+            <div class="panel-head-row">
+              <h3>Image</h3>
+              <span class="output-badge">Illustrative</span>
+            </div>
+            <p>Confirm object labels, tighten bounding boxes to visible edges, and flag uncertain or obscured objects for senior review.</p>
           </div>
           <div class="output">
-            <div class="output-head">Sample output <em>illustrative</em></div>
-            <p class="sample-input"><strong>Pilot input.</strong> A 1,000 × 600 image of a sorting station with a parcel and a partly hidden object.</p>
-            <figure class="image-example">
-              <div class="image-scene" aria-hidden="true">
-                <span class="image-parcel"></span>
-                <span class="image-obstruction"></span>
-                <span class="image-unknown"></span>
-                <span class="image-box image-box-draft"></span>
-                <span class="image-box image-box-verified"></span>
-                <span class="image-box image-box-flag"></span>
+            <div class="wf-bar" data-wf-bar hidden>
+              <div class="wf-steps" role="tablist" aria-label="Image workflow steps">
+                <button type="button" class="wf-step" data-wf-step="0" role="tab" aria-selected="true"><span class="wf-step-num">01</span>Scene &amp; Boxes</button>
+                <button type="button" class="wf-step" data-wf-step="1" role="tab" aria-selected="false" tabindex="-1"><span class="wf-step-num">02</span>Coordinates</button>
+                <button type="button" class="wf-step" data-wf-step="2" role="tab" aria-selected="false" tabindex="-1"><span class="wf-step-num">03</span>QA &amp; Output</button>
               </div>
-              <figcaption class="tl-legend">
-                <span><i class="ai" aria-hidden="true"></i>Draft box</span>
-                <span><i aria-hidden="true"></i>Corrected parcel box</span>
-                <span><i class="flag" aria-hidden="true"></i>Uncertain object</span>
-              </figcaption>
-            </figure>
-            <h4 class="sample-subhead" id="image-boxes">Box coordinates and review flags</h4>
-            <p class="sample-note">Coordinates are in pixels, from the top-left corner to the bottom-right corner.</p>
-            <div class="output-scroll" role="region" aria-labelledby="image-boxes" tabindex="0">
-              <table class="dtable" role="table">
-                <thead role="rowgroup"><tr role="row"><th scope="col" role="columnheader">Draft</th><th scope="col" role="columnheader">Reviewer update</th><th scope="col" role="columnheader">Status</th></tr></thead>
-                <tbody role="rowgroup">
-                  <tr role="row"><td role="cell" data-label="Draft"><div>Parcel<br><span class="mono">(120, 90)–(540, 510)</span></div></td><td role="cell" data-label="Reviewer update"><div>Tighten the box to <span class="mono">(160, 120)–(460, 480)</span> to exclude empty counter space.</div></td><td role="cell" data-label="Status"><div><span class="pill ok">Verified</span></div></td></tr>
-                  <tr role="row"><td role="cell" data-label="Draft"><div>Bottle<br><span class="mono">(680, 330)–(840, 450)</span></div></td><td role="cell" data-label="Reviewer update"><div>Only the top is visible. Keep the region for review and withhold the class label.</div></td><td role="cell" data-label="Status"><div><span class="pill fix">Flagged</span></div></td></tr>
-                </tbody>
-              </table>
+              <div class="wf-nav">
+                <button type="button" class="wf-btn" data-wf-prev aria-label="Previous step">←</button>
+                <button type="button" class="wf-btn wf-btn-flip" data-wf-next aria-label="Flip to next step">Flip <span aria-hidden="true">↻</span></button>
+                <button type="button" class="wf-btn wf-btn-play" data-wf-toggle aria-pressed="false" aria-label="Pause auto-flip">Pause</button>
+              </div>
             </div>
-            <p class="workflow-check"><strong>QA check.</strong> Check every edge against the visible object. Keep the crop and location of an ambiguous object in the review queue so a second reviewer can inspect the same region.</p>
-            <p class="output-note"><b>Delivered:</b> verified labels, tight bounding boxes, and an exception list for unresolved objects.</p>
+            <div class="wf-stage" data-wf-stage>
+              <div class="wf-face is-active" data-wf-face="0" data-wf-title="Visual scene &amp; boxes">
+                <p class="sample-input"><strong>Pilot input.</strong> A 1,000 × 600 image of a sorting station with a parcel and a partly hidden object.</p>
+                <figure class="image-example">
+                  <div class="image-scene" aria-hidden="true">
+                    <span class="image-parcel"></span>
+                    <span class="image-obstruction"></span>
+                    <span class="image-unknown"></span>
+                    <span class="image-box image-box-draft"></span>
+                    <span class="image-box image-box-verified"></span>
+                    <span class="image-box image-box-flag"></span>
+                  </div>
+                  <figcaption class="tl-legend">
+                    <span><i class="ai" aria-hidden="true"></i>Draft box</span>
+                    <span><i aria-hidden="true"></i>Corrected parcel box</span>
+                    <span><i class="flag" aria-hidden="true"></i>Uncertain object</span>
+                  </figcaption>
+                </figure>
+              </div>
+              <div class="wf-face" data-wf-face="1" data-wf-title="Box coordinates &amp; flags">
+                <h4 class="sample-subhead" id="image-boxes">Box coordinates and review flags</h4>
+                <p class="sample-note">Coordinates are in pixels, from the top-left corner to the bottom-right corner.</p>
+                <div class="output-scroll" role="region" aria-labelledby="image-boxes" tabindex="0">
+                  <table class="dtable" role="table">
+                    <thead role="rowgroup"><tr role="row"><th scope="col" role="columnheader">Draft</th><th scope="col" role="columnheader">Reviewer update</th><th scope="col" role="columnheader">Status</th></tr></thead>
+                    <tbody role="rowgroup">
+                      <tr role="row"><td role="cell" data-label="Draft"><div>Parcel<br><span class="mono">(120, 90)–(540, 510)</span></div></td><td role="cell" data-label="Reviewer update"><div>Tighten the box to <span class="mono">(160, 120)–(460, 480)</span> to exclude empty counter space.</div></td><td role="cell" data-label="Status"><div><span class="pill ok">Verified</span></div></td></tr>
+                      <tr role="row"><td role="cell" data-label="Draft"><div>Bottle<br><span class="mono">(680, 330)–(840, 450)</span></div></td><td role="cell" data-label="Reviewer update"><div>Only the top is visible. Keep the region for review and withhold the class label.</div></td><td role="cell" data-label="Status"><div><span class="pill fix">Flagged</span></div></td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <div class="wf-face" data-wf-face="2" data-wf-title="QA &amp; Deliverable">
+                <div class="wf-deliverable">
+                  <div class="rationale"><small>Pilot deliverable</small>Verified object labels, tight pixel bounding boxes, and an exception queue for ambiguous or partially obscured objects.</div>
+                  <p class="workflow-check"><strong>QA check.</strong> Check every edge against the visible object and preserve the crop and location of ambiguous objects so a second reviewer inspects the exact same region.</p>
+                </div>
+              </div>
+            </div>
+            <div class="wf-foot" data-wf-foot hidden>
+              <span class="wf-counter" data-wf-counter>Step 1 of 3</span>
+              <div class="wf-progress" aria-hidden="true"><i data-wf-progress></i></div>
+              <button type="button" class="wf-next-link" data-wf-next-link>Next step →</button>
+            </div>
           </div>
         </div>
+
         <!-- Model evaluation -->
-        <div class="panel" id="panel-eval">
+        <div class="panel" id="panel-eval" data-wf-deck>
           <div class="panel-copy">
-            <h3>Model evaluation</h3>
-            <p>Score each answer against the same rubric, rank the responses, and write a corrected answer that preserves what the source supports.</p>
+            <div class="panel-head-row">
+              <h3>Model evaluation</h3>
+              <span class="output-badge">Illustrative</span>
+            </div>
+            <p>Score each answer against the same rubric, rank the responses, and write a corrected training answer grounded in the supplied reference.</p>
           </div>
           <div class="output">
-            <div class="output-head">Sample output <em>illustrative</em></div>
-            <dl class="sample-review">
-              <div><dt>User prompt</dt><dd>“What format can I export my report in, and where do I find the option?”</dd></div>
-              <div><dt>Product guide</dt><dd>“Open Reports, select Export, then choose CSV. CSV is the only supported export format.”</dd></div>
-            </dl>
-            <h4 class="sample-subhead">Rubric scores out of 5</h4>
-            <div class="rubric">
-              <div class="resp win">
-                <div class="resp-head">Candidate A <span class="tag">Rank 1</span></div>
-                <p class="sample-answer">“You can download the report as CSV from Reports.”</p>
-                <div class="metric">Grounding<span class="bar" aria-hidden="true"><i style="--w:100%"></i></span><b>5</b></div>
-                <div class="metric">Completeness<span class="bar" aria-hidden="true"><i style="--w:80%"></i></span><b>4</b></div>
-                <div class="metric">Clarity<span class="bar" aria-hidden="true"><i style="--w:100%"></i></span><b>5</b></div>
+            <div class="wf-bar" data-wf-bar hidden>
+              <div class="wf-steps" role="tablist" aria-label="Model evaluation workflow steps">
+                <button type="button" class="wf-step" data-wf-step="0" role="tab" aria-selected="true"><span class="wf-step-num">01</span>Prompt &amp; Source</button>
+                <button type="button" class="wf-step" data-wf-step="1" role="tab" aria-selected="false" tabindex="-1"><span class="wf-step-num">02</span>Rubric Ranking</button>
+                <button type="button" class="wf-step" data-wf-step="2" role="tab" aria-selected="false" tabindex="-1"><span class="wf-step-num">03</span>Rewrite &amp; QA</button>
               </div>
-              <div class="resp">
-                <div class="resp-head">Candidate B <span class="tag muted">Rank 2</span></div>
-                <p class="sample-answer">“Go to Settings to export a CSV or PDF.”</p>
-                <div class="metric">Grounding<span class="bar" aria-hidden="true"><i style="--w:40%"></i></span><b>2</b></div>
-                <div class="metric">Completeness<span class="bar" aria-hidden="true"><i style="--w:40%"></i></span><b>2</b></div>
-                <div class="metric">Clarity<span class="bar" aria-hidden="true"><i style="--w:80%"></i></span><b>4</b></div>
+              <div class="wf-nav">
+                <button type="button" class="wf-btn" data-wf-prev aria-label="Previous step">←</button>
+                <button type="button" class="wf-btn wf-btn-flip" data-wf-next aria-label="Flip to next step">Flip <span aria-hidden="true">↻</span></button>
+                <button type="button" class="wf-btn wf-btn-play" data-wf-toggle aria-pressed="false" aria-label="Pause auto-flip">Pause</button>
               </div>
             </div>
-            <div class="rationale"><small>Ranking rationale</small>A gets the format and page right but omits the Export step. B adds unsupported PDF export and points to the wrong page.</div>
-            <div class="rationale"><small>Rewritten answer</small>“CSV is the only supported format. Open Reports, select Export, then choose CSV.”</div>
-            <p class="workflow-check"><strong>QA check.</strong> Grounding checks facts against the guide. Completeness checks both parts of the question. Clarity checks whether the instructions are easy to follow. With equal weights, A earns 14 out of 15 and B earns 8 out of 15.</p>
-            <p class="output-note"><b>Delivered:</b> criterion-level scores, a ranked pair with rationale, and a corrected training answer.</p>
+            <div class="wf-stage" data-wf-stage>
+              <div class="wf-face is-active" data-wf-face="0" data-wf-title="Prompt &amp; source">
+                <dl class="sample-review">
+                  <div><dt>User prompt</dt><dd>“What format can I export my report in, and where do I find the option?”</dd></div>
+                  <div><dt>Product guide (reference)</dt><dd>“Open Reports, select Export, then choose CSV. CSV is the only supported export format.”</dd></div>
+                </dl>
+                <div class="rationale"><small>Evaluation task</small>Score two candidate model responses out of 5 on <strong>Grounding</strong>, <strong>Completeness</strong>, and <strong>Clarity</strong>, then rank and rewrite.</div>
+              </div>
+              <div class="wf-face" data-wf-face="1" data-wf-title="Rubric scores &amp; ranking">
+                <h4 class="sample-subhead">Rubric scores out of 5</h4>
+                <div class="rubric">
+                  <div class="resp win">
+                    <div class="resp-head">Candidate A <span class="tag">Rank 1 · 14/15</span></div>
+                    <p class="sample-answer">“You can download the report as CSV from Reports.”</p>
+                    <div class="metric">Grounding<span class="bar" aria-hidden="true"><i style="--w:100%"></i></span><b>5</b></div>
+                    <div class="metric">Completeness<span class="bar" aria-hidden="true"><i style="--w:80%"></i></span><b>4</b></div>
+                    <div class="metric">Clarity<span class="bar" aria-hidden="true"><i style="--w:100%"></i></span><b>5</b></div>
+                  </div>
+                  <div class="resp">
+                    <div class="resp-head">Candidate B <span class="tag muted">Rank 2 · 8/15</span></div>
+                    <p class="sample-answer">“Go to Settings to export a CSV or PDF.”</p>
+                    <div class="metric">Grounding<span class="bar" aria-hidden="true"><i style="--w:40%"></i></span><b>2</b></div>
+                    <div class="metric">Completeness<span class="bar" aria-hidden="true"><i style="--w:40%"></i></span><b>2</b></div>
+                    <div class="metric">Clarity<span class="bar" aria-hidden="true"><i style="--w:80%"></i></span><b>4</b></div>
+                  </div>
+                </div>
+                <div class="rationale"><small>Ranking rationale</small>A gets the format and page right but omits the Export step. B adds unsupported PDF export and points to the wrong page.</div>
+              </div>
+              <div class="wf-face" data-wf-face="2" data-wf-title="Rewritten answer &amp; QA">
+                <div class="wf-deliverable">
+                  <div class="rationale"><small>Rewritten training answer</small>“CSV is the only supported format. Open Reports, select Export, then choose CSV.”</div>
+                  <p class="workflow-check"><strong>QA check.</strong> Grounding checks facts against the guide, completeness checks both parts of the question, and clarity checks step-by-step readability. Delivered: criterion scores, ranking rationale, and rewritten SFT answer.</p>
+                </div>
+              </div>
+            </div>
+            <div class="wf-foot" data-wf-foot hidden>
+              <span class="wf-counter" data-wf-counter>Step 1 of 3</span>
+              <div class="wf-progress" aria-hidden="true"><i data-wf-progress></i></div>
+              <button type="button" class="wf-next-link" data-wf-next-link>Next step →</button>
+            </div>
           </div>
         </div>
+
         <!-- Medical evaluation -->
-        <div class="panel" id="panel-medical">
+        <div class="panel" id="panel-medical" data-wf-deck>
           <div class="panel-copy">
-            <h3>Medical evaluation</h3>
-            <p>Review clinical text claim by claim. Link each finding to the exact source line, correct contradictions, and flag claims the supplied record does not support.</p>
+            <div class="panel-head-row">
+              <h3>Medical evaluation</h3>
+              <span class="output-badge">Fictional record</span>
+            </div>
+            <p>Review clinical text claim by claim. Trace each finding to its exact source line, correct contradictions, and remove unsupported claims.</p>
           </div>
           <div class="output">
-            <div class="output-head">Sample output <em>fictional record</em></div>
-            <dl class="sample-review">
-              <div><dt>Visit note · L1</dt><dd>“The patient reported left knee pain after walking.”</dd></div>
-              <div><dt>Visit note · L2</dt><dd>“No swelling was observed.”</dd></div>
-              <div><dt>Model draft</dt><dd>“The patient reported right knee pain after walking, had swelling, and was unable to climb stairs.”</dd></div>
-            </dl>
-            <h4 class="sample-subhead" id="medical-claims">Claim audit</h4>
-            <div class="output-scroll" role="region" aria-labelledby="medical-claims" tabindex="0">
-              <table class="dtable" role="table">
-                <thead role="rowgroup"><tr role="row"><th scope="col" role="columnheader">Draft claim</th><th scope="col" role="columnheader">Source</th><th scope="col" role="columnheader">Reviewer finding</th></tr></thead>
-                <tbody role="rowgroup">
-                  <tr role="row"><td role="cell" data-label="Draft claim"><div>Pain after walking</div></td><td class="mono" role="cell" data-label="Source"><div>L1</div></td><td role="cell" data-label="Reviewer finding"><div>Supported. Keep the activity and symptom.</div></td></tr>
-                  <tr role="row"><td role="cell" data-label="Draft claim"><div>Right knee</div></td><td class="mono" role="cell" data-label="Source"><div>L1</div></td><td role="cell" data-label="Reviewer finding"><div>Contradicted. Change right to left.</div></td></tr>
-                  <tr role="row"><td role="cell" data-label="Draft claim"><div>Swelling present</div></td><td class="mono" role="cell" data-label="Source"><div>L2</div></td><td role="cell" data-label="Reviewer finding"><div>Contradicted. The note records no observed swelling.</div></td></tr>
-                  <tr role="row"><td role="cell" data-label="Draft claim"><div>Unable to climb stairs</div></td><td role="cell" data-label="Source"><div>None</div></td><td role="cell" data-label="Reviewer finding"><div>Unsupported. The supplied note does not address stairs. Remove the claim.</div></td></tr>
-                </tbody>
-              </table>
+            <div class="wf-bar" data-wf-bar hidden>
+              <div class="wf-steps" role="tablist" aria-label="Medical evaluation workflow steps">
+                <button type="button" class="wf-step" data-wf-step="0" role="tab" aria-selected="true"><span class="wf-step-num">01</span>Note &amp; Draft</button>
+                <button type="button" class="wf-step" data-wf-step="1" role="tab" aria-selected="false" tabindex="-1"><span class="wf-step-num">02</span>Claim Audit</button>
+                <button type="button" class="wf-step" data-wf-step="2" role="tab" aria-selected="false" tabindex="-1"><span class="wf-step-num">03</span>Rewrite &amp; QA</button>
+              </div>
+              <div class="wf-nav">
+                <button type="button" class="wf-btn" data-wf-prev aria-label="Previous step">←</button>
+                <button type="button" class="wf-btn wf-btn-flip" data-wf-next aria-label="Flip to next step">Flip <span aria-hidden="true">↻</span></button>
+                <button type="button" class="wf-btn wf-btn-play" data-wf-toggle aria-pressed="false" aria-label="Pause auto-flip">Pause</button>
+              </div>
             </div>
-            <div class="rationale"><small>Corrected summary</small>“The patient reported left knee pain after walking [L1]. No swelling was observed [L2].”</div>
-            <p class="workflow-check"><strong>QA check.</strong> Preserve whether the note reports a patient’s symptom or documents an observation. Record the exact source line for each retained claim.</p>
-            <p class="output-note"><b>Delivered:</b> a corrected summary, line-level citations, and a log of contradicted or unsupported claims.</p>
+            <div class="wf-stage" data-wf-stage>
+              <div class="wf-face is-active" data-wf-face="0" data-wf-title="Clinical note &amp; draft">
+                <dl class="sample-review">
+                  <div><dt>Visit note · L1</dt><dd>“The patient reported left knee pain after walking.”</dd></div>
+                  <div><dt>Visit note · L2</dt><dd>“No swelling was observed.”</dd></div>
+                  <div><dt>Model draft (to verify)</dt><dd>“The patient reported right knee pain after walking, had swelling, and was unable to climb stairs.”</dd></div>
+                </dl>
+              </div>
+              <div class="wf-face" data-wf-face="1" data-wf-title="Claim audit">
+                <h4 class="sample-subhead" id="medical-claims">Claim audit</h4>
+                <div class="output-scroll" role="region" aria-labelledby="medical-claims" tabindex="0">
+                  <table class="dtable" role="table">
+                    <thead role="rowgroup"><tr role="row"><th scope="col" role="columnheader">Draft claim</th><th scope="col" role="columnheader">Source</th><th scope="col" role="columnheader">Reviewer finding</th></tr></thead>
+                    <tbody role="rowgroup">
+                      <tr role="row"><td role="cell" data-label="Draft claim"><div>Pain after walking</div></td><td class="mono" role="cell" data-label="Source"><div>L1</div></td><td role="cell" data-label="Reviewer finding"><div>Supported. Keep the activity and symptom.</div></td></tr>
+                      <tr role="row"><td role="cell" data-label="Draft claim"><div>Right knee</div></td><td class="mono" role="cell" data-label="Source"><div>L1</div></td><td role="cell" data-label="Reviewer finding"><div>Contradicted. Change right to left.</div></td></tr>
+                      <tr role="row"><td role="cell" data-label="Draft claim"><div>Swelling present</div></td><td class="mono" role="cell" data-label="Source"><div>L2</div></td><td role="cell" data-label="Reviewer finding"><div>Contradicted. The note records no observed swelling.</div></td></tr>
+                      <tr role="row"><td role="cell" data-label="Draft claim"><div>Unable to climb stairs</div></td><td class="mono" role="cell" data-label="Source"><div>None</div></td><td role="cell" data-label="Reviewer finding"><div>Unsupported. Remove claim not present in source note.</div></td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <div class="wf-face" data-wf-face="2" data-wf-title="Corrected summary &amp; QA">
+                <div class="wf-deliverable">
+                  <div class="rationale"><small>Corrected summary</small>“The patient reported left knee pain after walking [L1]. No swelling was observed [L2].”</div>
+                  <p class="workflow-check"><strong>QA check.</strong> Preserve whether the note reports a patient’s symptom or documents a clinical observation, and cite the exact source line for every retained claim.</p>
+                </div>
+              </div>
+            </div>
+            <div class="wf-foot" data-wf-foot hidden>
+              <span class="wf-counter" data-wf-counter>Step 1 of 3</span>
+              <div class="wf-progress" aria-hidden="true"><i data-wf-progress></i></div>
+              <button type="button" class="wf-next-link" data-wf-next-link>Next step →</button>
+            </div>
           </div>
         </div>
+
         <!-- Legal evaluation -->
-        <div class="panel" id="panel-legal">
+        <div class="panel" id="panel-legal" data-wf-deck>
           <div class="panel-copy">
-            <h3>Legal evaluation</h3>
-            <p>Check each contract claim against the supplied agreement, cite the exact clause for every finding, and flag omitted conditions or exceptions.</p>
+            <div class="panel-head-row">
+              <h3>Legal evaluation</h3>
+              <span class="output-badge">Fictional agreement</span>
+            </div>
+            <p>Verify each contract claim against the supplied agreement, cite the governing clause for every finding, and restore omitted conditions.</p>
           </div>
           <div class="output">
-            <div class="output-head">Sample output <em>fictional agreement</em></div>
-            <dl class="sample-review">
-              <div><dt>§ 8.1 · Termination</dt><dd>“Either party may terminate this agreement on 30 days’ written notice.”</dd></div>
-              <div><dt>§ 11.2 · Delivery of notices</dt><dd>“Notices must be sent by tracked mail to the receiving party’s address in Schedule A.”</dd></div>
-              <div><dt>Model draft</dt><dd>“Either party can terminate with 60 days’ notice by email.”</dd></div>
-            </dl>
-            <h4 class="sample-subhead" id="legal-claims">Clause-level findings</h4>
-            <div class="output-scroll" role="region" aria-labelledby="legal-claims" tabindex="0">
-              <table class="dtable" role="table">
-                <thead role="rowgroup"><tr role="row"><th scope="col" role="columnheader">Draft claim</th><th scope="col" role="columnheader">Exact clause</th><th scope="col" role="columnheader">Reviewer finding</th></tr></thead>
-                <tbody role="rowgroup">
-                  <tr role="row"><td role="cell" data-label="Draft claim"><div>Either party may terminate</div></td><td class="mono" role="cell" data-label="Exact clause"><div>§ 8.1</div></td><td role="cell" data-label="Reviewer finding"><div>Supported. Preserve the right for both parties.</div></td></tr>
-                  <tr role="row"><td role="cell" data-label="Draft claim"><div>60 days’ notice</div></td><td class="mono" role="cell" data-label="Exact clause"><div>§ 8.1</div></td><td role="cell" data-label="Reviewer finding"><div>Correct to 30 days and restore the written-notice requirement.</div></td></tr>
-                  <tr role="row"><td role="cell" data-label="Draft claim"><div>Notice by email</div></td><td class="mono" role="cell" data-label="Exact clause"><div>§ 11.2</div></td><td role="cell" data-label="Reviewer finding"><div>Replace with tracked mail to the receiving party’s Schedule A address.</div></td></tr>
-                </tbody>
-              </table>
+            <div class="wf-bar" data-wf-bar hidden>
+              <div class="wf-steps" role="tablist" aria-label="Legal evaluation workflow steps">
+                <button type="button" class="wf-step" data-wf-step="0" role="tab" aria-selected="true"><span class="wf-step-num">01</span>Clauses &amp; Draft</button>
+                <button type="button" class="wf-step" data-wf-step="1" role="tab" aria-selected="false" tabindex="-1"><span class="wf-step-num">02</span>Clause Audit</button>
+                <button type="button" class="wf-step" data-wf-step="2" role="tab" aria-selected="false" tabindex="-1"><span class="wf-step-num">03</span>Rewrite &amp; QA</button>
+              </div>
+              <div class="wf-nav">
+                <button type="button" class="wf-btn" data-wf-prev aria-label="Previous step">←</button>
+                <button type="button" class="wf-btn wf-btn-flip" data-wf-next aria-label="Flip to next step">Flip <span aria-hidden="true">↻</span></button>
+                <button type="button" class="wf-btn wf-btn-play" data-wf-toggle aria-pressed="false" aria-label="Pause auto-flip">Pause</button>
+              </div>
             </div>
-            <div class="rationale"><small>Cited rewrite</small>“Either party may terminate on 30 days’ written notice (§ 8.1). Send the notice by tracked mail to the receiving party’s address in Schedule A (§ 11.2).”</div>
-            <p class="workflow-check"><strong>QA check.</strong> Check the right to terminate, the notice period, and the delivery method separately. Each correction cites the clause that governs that detail.</p>
-            <p class="output-note"><b>Delivered:</b> a claim-by-claim review, exact clause citations, and a corrected contract summary.</p>
+            <div class="wf-stage" data-wf-stage>
+              <div class="wf-face is-active" data-wf-face="0" data-wf-title="Clauses &amp; draft">
+                <dl class="sample-review">
+                  <div><dt>§ 8.1 · Termination</dt><dd>“Either party may terminate this agreement on 30 days’ written notice.”</dd></div>
+                  <div><dt>§ 11.2 · Delivery of notices</dt><dd>“Notices must be sent by tracked mail to the receiving party’s address in Schedule A.”</dd></div>
+                  <div><dt>Model draft (to verify)</dt><dd>“Either party can terminate with 60 days’ notice by email.”</dd></div>
+                </dl>
+              </div>
+              <div class="wf-face" data-wf-face="1" data-wf-title="Clause-level findings">
+                <h4 class="sample-subhead" id="legal-claims">Clause-level findings</h4>
+                <div class="output-scroll" role="region" aria-labelledby="legal-claims" tabindex="0">
+                  <table class="dtable" role="table">
+                    <thead role="rowgroup"><tr role="row"><th scope="col" role="columnheader">Draft claim</th><th scope="col" role="columnheader">Exact clause</th><th scope="col" role="columnheader">Reviewer finding</th></tr></thead>
+                    <tbody role="rowgroup">
+                      <tr role="row"><td role="cell" data-label="Draft claim"><div>Either party may terminate</div></td><td class="mono" role="cell" data-label="Exact clause"><div>§ 8.1</div></td><td role="cell" data-label="Reviewer finding"><div>Supported. Preserve the right for both parties.</div></td></tr>
+                      <tr role="row"><td role="cell" data-label="Draft claim"><div>60 days’ notice</div></td><td class="mono" role="cell" data-label="Exact clause"><div>§ 8.1</div></td><td role="cell" data-label="Reviewer finding"><div>Correct to 30 days and restore written-notice requirement.</div></td></tr>
+                      <tr role="row"><td role="cell" data-label="Draft claim"><div>Notice by email</div></td><td class="mono" role="cell" data-label="Exact clause"><div>§ 11.2</div></td><td role="cell" data-label="Reviewer finding"><div>Replace with tracked mail to the Schedule A address.</div></td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <div class="wf-face" data-wf-face="2" data-wf-title="Cited rewrite &amp; QA">
+                <div class="wf-deliverable">
+                  <div class="rationale"><small>Cited rewrite</small>“Either party may terminate on 30 days’ written notice (§ 8.1). Send the notice by tracked mail to the receiving party’s address in Schedule A (§ 11.2).”</div>
+                  <p class="workflow-check"><strong>QA check.</strong> Verify the termination right, notice period, and delivery method separately, citing the governing clause for every correction.</p>
+                </div>
+              </div>
+            </div>
+            <div class="wf-foot" data-wf-foot hidden>
+              <span class="wf-counter" data-wf-counter>Step 1 of 3</span>
+              <div class="wf-progress" aria-hidden="true"><i data-wf-progress></i></div>
+              <button type="button" class="wf-next-link" data-wf-next-link>Next step →</button>
+            </div>
           </div>
         </div>
       </div>
