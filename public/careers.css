@@ -698,30 +698,14 @@
   box-shadow: none;
 }
 
-.aces-navigation a.careers-outbound,
 .aces-footer a.careers-outbound {
   justify-content: center;
-  border: 1px solid currentColor;
-  border-radius: 999px;
-  font-weight: 700;
-}
-
-.aces-navigation a.careers-outbound {
-  color: var(--c-ink-2);
-  background: #fff;
-  border-color: var(--c-line);
-}
-
-.aces-navigation a.careers-outbound:hover {
-  color: var(--c-blue);
-  border-color: var(--c-blue);
-}
-
-.aces-footer a.careers-outbound {
   min-height: 44px;
   margin-block: 2px;
   padding: 8px 14px;
-  border-color: #657598;
+  border: 1px solid #657598;
+  border-radius: 999px;
+  font-weight: 700;
 }
 
 .aces-footer a.careers-outbound:hover {
