@@ -698,25 +698,6 @@
   box-shadow: none;
 }
 
-.aces-footer a.careers-outbound {
-  justify-content: center;
-  min-height: 44px;
-  margin-block: 2px;
-  padding: 8px 14px;
-  border: 1px solid #657598;
-  border-radius: 999px;
-  font-weight: 700;
-}
-
-.aces-footer a.careers-outbound:hover {
-  background: #172749;
-  border-color: #9baed8;
-}
-
-.aces-footer a.careers-outbound:focus-visible {
-  outline-color: #a2b9ff;
-}
-
 .careers-cta a:focus-visible {
   outline-color: #fff;
 }

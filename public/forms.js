@@ -47,4 +47,4 @@ form.addEventListener('submit', async event => {
   }
 });
 
-if(form.elements.service && new URLSearchParams(location.search).get("service")==="ai-agent") form.elements.service.value="AI Agent VA & digital employee";
+if(form.elements.service && new URLSearchParams(location.search).get("service")==="business") form.elements.service.value="Business websites, POS & operations";
