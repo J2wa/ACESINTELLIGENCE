@@ -79,7 +79,7 @@
   padding-top: 24px;
   border-top: 1px solid #b2c6ef;
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 20px 32px;
 }
 
@@ -103,12 +103,6 @@
   font-weight: 600;
   color: var(--navy);
   line-height: 1.2;
-}
-
-.careers-stat-value a {
-  color: var(--blue);
-  text-decoration: underline;
-  text-underline-offset: 4px;
 }
 
 .careers-board {
@@ -286,14 +280,6 @@
   color: var(--navy);
 }
 
-.job-title a {
-  color: inherit;
-  transition: color 0.15s ease;
-}
-
-.job-title a:hover {
-  color: var(--blue);
-}
 
 .job-summary {
   margin: 10px 0 0;
@@ -529,10 +515,6 @@
     justify-content: flex-start;
   }
 
-  .careers-stats {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
   .careers-controls {
     grid-template-columns: 1fr 1fr;
   }
@@ -568,6 +550,10 @@
 
   .careers-hero h1 {
     margin: 28px 0 24px;
+  }
+
+  .careers-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .careers-board {
@@ -692,9 +678,59 @@
 }
 
 .careers-hero-actions .btn,
+.careers-board-meta .btn,
 .jobs-state-actions .btn,
 .careers-cta .btn {
   width: auto;
+}
+
+.btn.btn-secondary {
+  color: var(--navy);
+  background: #fff;
+  border-color: var(--line-2);
+  box-shadow: none;
+}
+
+.btn.btn-secondary:hover {
+  color: var(--blue);
+  background: var(--blue-tint);
+  border-color: var(--blue);
+  box-shadow: none;
+}
+
+.aces-navigation a.careers-outbound,
+.aces-footer a.careers-outbound {
+  justify-content: center;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-weight: 700;
+}
+
+.aces-navigation a.careers-outbound {
+  color: var(--c-ink-2);
+  background: #fff;
+  border-color: var(--c-line);
+}
+
+.aces-navigation a.careers-outbound:hover {
+  color: var(--c-blue);
+  border-color: var(--c-blue);
+}
+
+.aces-footer a.careers-outbound {
+  min-height: 44px;
+  margin-block: 2px;
+  padding: 8px 14px;
+  border-color: #657598;
+}
+
+.aces-footer a.careers-outbound:hover {
+  background: #172749;
+  border-color: #9baed8;
+}
+
+.aces-footer a.careers-outbound:focus-visible {
+  outline-color: #a2b9ff;
 }
 
 .careers-cta a:focus-visible {

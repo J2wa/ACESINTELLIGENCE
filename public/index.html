@@ -171,13 +171,25 @@
     <div class="tabs reveal" data-tabs>
       <div class="tablist" role="tablist" aria-label="Sample workflows" hidden>
         <button class="tab" type="button" role="tab" id="tab-speech" aria-controls="panel-speech" aria-selected="true">
-          <span class="tnum">01</span><strong>Speech &amp; music</strong><span class="tdesc">MOS / CMOS ratings, instrument tags, segment boundaries</span>
+          <strong>Speech</strong><span class="tdesc">Naturalness scores and A/B listening comparisons</span>
         </button>
         <button class="tab" type="button" role="tab" id="tab-video" aria-controls="panel-video" aria-selected="false" tabindex="-1">
-          <span class="tnum">02</span><strong>Video annotation</strong><span class="tdesc">Verify AI-suggested action labels and timings</span>
+          <strong>Video</strong><span class="tdesc">Action labels and verified timestamps</span>
+        </button>
+        <button class="tab" type="button" role="tab" id="tab-music" aria-controls="panel-music" aria-selected="false" tabindex="-1">
+          <strong>Music</strong><span class="tdesc">Song sections and instrument tags</span>
+        </button>
+        <button class="tab" type="button" role="tab" id="tab-image" aria-controls="panel-image" aria-selected="false" tabindex="-1">
+          <strong>Image</strong><span class="tdesc">Object labels, bounding boxes, and review flags</span>
         </button>
         <button class="tab" type="button" role="tab" id="tab-eval" aria-controls="panel-eval" aria-selected="false" tabindex="-1">
-          <span class="tnum">03</span><strong>Model evaluation</strong><span class="tdesc">Rubric scoring, pairwise ranking, SFT rewrites</span>
+          <strong>Model evaluation</strong><span class="tdesc">Rubric scores, rankings, and corrected responses</span>
+        </button>
+        <button class="tab" type="button" role="tab" id="tab-medical" aria-controls="panel-medical" aria-selected="false" tabindex="-1">
+          <strong>Medical evaluation</strong><span class="tdesc">Clinical-text accuracy and source checks</span>
+        </button>
+        <button class="tab" type="button" role="tab" id="tab-legal" aria-controls="panel-legal" aria-selected="false" tabindex="-1">
+          <strong>Legal evaluation</strong><span class="tdesc">Contract claims and clause citations</span>
         </button>
       </div>
 
@@ -185,28 +197,28 @@
         <!-- Speech -->
         <div class="panel" id="panel-speech">
           <div class="panel-copy">
-            <h3>Speech &amp; music</h3>
-            <p>Rate the naturalness of individual speech clips using Mean Opinion Score (MOS), or compare two versions using Comparative Mean Opinion Score (CMOS). For music, verify instrument tags and timestamped segment boundaries.</p>
+            <h3>Speech</h3>
+            <p>Rate the naturalness of individual speech clips using Mean Opinion Score (MOS), then compare two versions of the same utterance using Comparative Mean Opinion Score (CMOS).</p>
           </div>
           <div class="output">
             <div class="output-head">Sample output <em>illustrative</em></div>
-            <div class="output-scroll" role="region" aria-label="Speech and music sample results" tabindex="0">
+            <div class="output-scroll" role="region" aria-label="Sample speech naturalness scores" tabindex="0">
             <table class="dtable">
               <thead><tr><th>Clip</th><th>MOS</th><th>Listening note</th><th>Status</th></tr></thead>
               <tbody>
                 <tr><td class="mono">clip_014.wav</td><td><span class="score"><span class="bar"><i style="--w:86%"></i></span>4.3</span></td><td>Natural pacing; slight sibilance at 0:03</td><td><span class="pill ok">Verified</span></td></tr>
                 <tr><td class="mono">clip_015.wav</td><td><span class="score"><span class="bar"><i style="--w:58%;--d:.1s"></i></span>2.9</span></td><td>Robotic stress on final word</td><td><span class="pill fix">Flagged</span></td></tr>
-                <tr><td class="mono">track_03.mp3</td><td><span class="score"><span class="bar"><i style="--w:78%;--d:.2s"></i></span>3.9</span></td><td>Bridge starts 1:42.6, not 1:44.0</td><td><span class="pill fix">Corrected</span></td></tr>
               </tbody>
             </table>
             </div>
-            <p class="output-note"><b>Delivered:</b> clip scores, listening notes, and corrected timestamps.</p>
+            <div class="rationale"><small>CMOS comparison</small><strong>+1 · Version A preferred.</strong> A puts the stress on the expected syllable in the final word.</div>
+            <p class="output-note"><b>Delivered:</b> clip scores, pairwise preferences, and listening notes.</p>
           </div>
         </div>
         <!-- Video -->
         <div class="panel" id="panel-video">
           <div class="panel-copy">
-            <h3>Video annotation</h3>
+            <h3>Video</h3>
             <p>Review AI-suggested action labels against the footage, correct start and end times, and flag hand–object interactions that are obscured in the frame.</p>
           </div>
           <div class="output">
@@ -225,11 +237,51 @@
             <p class="output-note"><b>Delivered:</b> verified event labels with start and end times.</p>
           </div>
         </div>
-        <!-- Eval -->
+        <!-- Music -->
+        <div class="panel" id="panel-music">
+          <div class="panel-copy">
+            <h3>Music</h3>
+            <p>Mark song sections against the audio, correct their start and end times, and tag the instruments audible in each section.</p>
+          </div>
+          <div class="output">
+            <div class="output-head">Sample output <em>illustrative</em></div>
+            <div class="output-scroll" role="region" aria-label="Sample music section annotations" tabindex="0">
+              <table class="dtable">
+                <thead><tr><th scope="col">Section</th><th scope="col">Time range</th><th scope="col">Instrument tags</th><th scope="col">Review note</th></tr></thead>
+                <tbody>
+                  <tr><td>Chorus</td><td class="mono">1:15.4–1:42.6</td><td>Electric guitar, bass, drums</td><td>Ends at the drum fill.</td></tr>
+                  <tr><td>Bridge</td><td class="mono">1:42.6–2:06.2</td><td>Synth pad, bass</td><td>Start moved earlier from 1:44.0.</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="output-note"><b>Delivered:</b> a timestamped section map, verified instrument tags, and boundary corrections.</p>
+          </div>
+        </div>
+        <!-- Image -->
+        <div class="panel" id="panel-image">
+          <div class="panel-copy">
+            <h3>Image</h3>
+            <p>Check object labels against the image, adjust bounding boxes to the visible object edges, and flag cases where the category is unclear.</p>
+          </div>
+          <div class="output">
+            <div class="output-head">Sample output <em>illustrative</em></div>
+            <div class="output-scroll" role="region" aria-label="Sample image annotation corrections" tabindex="0">
+              <table class="dtable">
+                <thead><tr><th scope="col">Object</th><th scope="col">Draft annotation</th><th scope="col">Reviewer update</th><th scope="col">Status</th></tr></thead>
+                <tbody>
+                  <tr><td class="mono">object_01</td><td>Backpack</td><td>Expanded the box to include the visible straps.</td><td><span class="pill ok">Corrected</span></td></tr>
+                  <tr><td class="mono">object_02</td><td>Water bottle</td><td>Only the cap is visible. Category needs review.</td><td><span class="pill fix">Flagged</span></td></tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="output-note"><b>Delivered:</b> verified class labels, updated box coordinates, and review flags.</p>
+          </div>
+        </div>
+        <!-- Model evaluation -->
         <div class="panel" id="panel-eval">
           <div class="panel-copy">
             <h3>Model evaluation</h3>
-            <p>Score candidate answers against a rubric, rank response pairs, and prepare corrected examples for supervised fine-tuning. Legal and medical reviewers can check answers against the supplied reference material.</p>
+            <p>Score candidate answers against a rubric, rank response pairs, and prepare corrected examples for supervised fine-tuning.</p>
           </div>
           <div class="output">
             <div class="output-head">Sample output <em>illustrative</em></div>
@@ -247,8 +299,40 @@
                 <div class="metric">Tone<span class="bar"><i style="--w:88%;--d:.2s"></i></span><b>4.4</b></div>
               </div>
             </div>
-            <div class="rationale"><small>Ranking rationale &amp; revision</small>B cites a clause not present in the supplied contract. Revised: “The agreement <del>automatically renews annually</del> <ins>renews only on written notice (§ 9.2)</ins>.”</div>
+            <div class="rationale"><small>Ranking rationale &amp; revision</small>Candidate B claims a PDF export the supplied product guide does not list. Revision: “You can export the report as <del>CSV or PDF</del> <ins>CSV</ins>.”</div>
             <p class="output-note"><b>Delivered:</b> rubric scores, ranking rationales, and revised responses.</p>
+          </div>
+        </div>
+        <!-- Medical evaluation -->
+        <div class="panel" id="panel-medical">
+          <div class="panel-copy">
+            <h3>Medical evaluation</h3>
+            <p>Clinical reviewers compare a model’s summary with the supplied record, checking details such as laterality and flagging findings the source does not support.</p>
+          </div>
+          <div class="output">
+            <div class="output-head">Sample output <em>illustrative</em></div>
+            <dl class="sample-review">
+              <div><dt>Source excerpt</dt><dd>“The patient reported pain in the left knee after walking.”</dd></div>
+              <div><dt>Model draft</dt><dd>“The patient reported right knee pain and swelling after walking.”</dd></div>
+              <div><dt>Reviewer correction</dt><dd>“The patient reported left knee pain after walking.” <span class="pill fix">Source mismatch</span></dd></div>
+            </dl>
+            <p class="output-note"><b>Delivered:</b> the corrected summary, source excerpt, and flags for incorrect laterality and unsupported findings.</p>
+          </div>
+        </div>
+        <!-- Legal evaluation -->
+        <div class="panel" id="panel-legal">
+          <div class="panel-copy">
+            <h3>Legal evaluation</h3>
+            <p>Legal reviewers check a model’s contract summary against the supplied clauses, verify citations, and flag missing conditions or exceptions.</p>
+          </div>
+          <div class="output">
+            <div class="output-head">Sample output <em>illustrative</em></div>
+            <dl class="sample-review">
+              <div><dt>Source excerpt</dt><dd>“Either party may terminate this agreement on 30 days’ written notice.” (§ 8.1)</dd></div>
+              <div><dt>Model draft</dt><dd>“Either party can terminate the agreement with 60 days’ notice.”</dd></div>
+              <div><dt>Reviewer correction</dt><dd>“Either party may terminate on 30 days’ written notice (§ 8.1).” <span class="pill fix">Condition missing</span></dd></div>
+            </dl>
+            <p class="output-note"><b>Delivered:</b> a clause-level correction, verified citation, and flags for the notice period and written-notice condition.</p>
           </div>
         </div>
       </div>

@@ -56,7 +56,6 @@
     });
 
     if (focus) tabs[index].focus();
-    if (mobile.matches) tabs[index].scrollIntoView({ block: 'nearest', inline: 'nearest' });
   }
 
   tabs.forEach((tab, index) => {

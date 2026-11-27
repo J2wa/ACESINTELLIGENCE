@@ -116,7 +116,7 @@
       signup.textContent = 'Create a profile on ACES Careers';
       actions.appendChild(signup);
 
-      const board = el('a', 'text-link', 'Visit ACES Careers');
+      const board = el('a', 'btn btn-secondary', 'Visit ACES Careers');
       board.href = careersUrl;
       actions.appendChild(board);
       box.appendChild(actions);
@@ -189,11 +189,7 @@
       info.appendChild(kicker);
     }
 
-    const titleEl = el('h3', 'job-title');
-    const titleLink = el('a', null, job.title);
-    titleLink.href = listingUrl;
-    titleEl.appendChild(titleLink);
-    info.appendChild(titleEl);
+    info.appendChild(el('h3', 'job-title', job.title));
 
     if (job.summary) {
       info.appendChild(el('p', 'job-summary', job.summary));
