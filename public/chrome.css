@@ -55,7 +55,6 @@
   .aces-footer-top{grid-template-columns:1fr 1fr}
   .aces-footer-top>div:first-child{grid-column:1/-1}
   .aces-header:not(.is-enhanced) + main .hero,
-  .aces-header:not(.is-enhanced) + main .agent-hero,
   .aces-header:not(.is-enhanced) + main .careers-hero,
   .aces-header:not(.is-enhanced) + .form-main{padding-top:48px}
 }
