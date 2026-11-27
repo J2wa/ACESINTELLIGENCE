@@ -165,31 +165,31 @@
         <p class="kicker reveal"><span class="idx">02</span> Sample workflows</p>
         <h2 id="samples-heading" class="h-section reveal" style="--delay:.06s">See what a pilot <span class="serif">delivers.</span></h2>
       </div>
-      <p class="lede reveal" style="--delay:.12s">Illustrative examples of the tasks our reviewers handle and the outputs a pilot can produce.</p>
+      <p class="lede reveal" style="--delay:.12s">Explore how reviewers check a draft, record their decisions, and turn those decisions into pilot deliverables.</p>
     </div>
 
     <div class="tabs reveal" data-tabs>
       <div class="tablist" role="tablist" aria-label="Sample workflows" hidden>
         <button class="tab" type="button" role="tab" id="tab-speech" aria-controls="panel-speech" aria-selected="true">
-          <strong>Speech</strong><span class="tdesc">Naturalness scores and A/B listening comparisons</span>
+          <strong>Speech</strong><span class="tdesc">Naturalness ratings and A/B listening tests, with reasons for every preference</span>
         </button>
         <button class="tab" type="button" role="tab" id="tab-video" aria-controls="panel-video" aria-selected="false" tabindex="-1">
-          <strong>Video</strong><span class="tdesc">Action labels and verified timestamps</span>
+          <strong>Video</strong><span class="tdesc">Action labels with frame-accurate, double-checked timestamps</span>
         </button>
         <button class="tab" type="button" role="tab" id="tab-music" aria-controls="panel-music" aria-selected="false" tabindex="-1">
-          <strong>Music</strong><span class="tdesc">Song sections and instrument tags</span>
+          <strong>Music</strong><span class="tdesc">Section boundaries, instrument tags, and mood and tempo notes</span>
         </button>
         <button class="tab" type="button" role="tab" id="tab-image" aria-controls="panel-image" aria-selected="false" tabindex="-1">
-          <strong>Image</strong><span class="tdesc">Object labels, bounding boxes, and review flags</span>
+          <strong>Image</strong><span class="tdesc">Object labels and tight bounding boxes, with flagged edge cases for review</span>
         </button>
         <button class="tab" type="button" role="tab" id="tab-eval" aria-controls="panel-eval" aria-selected="false" tabindex="-1">
-          <strong>Model evaluation</strong><span class="tdesc">Rubric scores, rankings, and corrected responses</span>
+          <strong>Model evaluation</strong><span class="tdesc">Rubric scoring, response rankings, and rewritten answers that fix what the model got wrong</span>
         </button>
         <button class="tab" type="button" role="tab" id="tab-medical" aria-controls="panel-medical" aria-selected="false" tabindex="-1">
-          <strong>Medical evaluation</strong><span class="tdesc">Clinical-text accuracy and source checks</span>
+          <strong>Medical evaluation</strong><span class="tdesc">Clinical-text accuracy review, with every claim traced to a source</span>
         </button>
         <button class="tab" type="button" role="tab" id="tab-legal" aria-controls="panel-legal" aria-selected="false" tabindex="-1">
-          <strong>Legal evaluation</strong><span class="tdesc">Contract claims and clause citations</span>
+          <strong>Legal evaluation</strong><span class="tdesc">Contract claim review, with each finding tied to the exact clause</span>
         </button>
       </div>
 
@@ -198,141 +198,222 @@
         <div class="panel" id="panel-speech">
           <div class="panel-copy">
             <h3>Speech</h3>
-            <p>Rate the naturalness of individual speech clips using Mean Opinion Score (MOS), then compare two versions of the same utterance using Comparative Mean Opinion Score (CMOS).</p>
+            <p>Rate each clip for naturalness using Mean Opinion Score (MOS). In a separate A/B test, compare versions of the same utterance and record an audible reason for every preference or tie.</p>
           </div>
           <div class="output">
             <div class="output-head">Sample output <em>illustrative</em></div>
-            <div class="output-scroll" role="region" aria-label="Sample speech naturalness scores" tabindex="0">
-            <table class="dtable">
-              <thead><tr><th>Clip</th><th>MOS</th><th>Listening note</th><th>Status</th></tr></thead>
-              <tbody>
-                <tr><td class="mono">clip_014.wav</td><td><span class="score"><span class="bar"><i style="--w:86%"></i></span>4.3</span></td><td>Natural pacing; slight sibilance at 0:03</td><td><span class="pill ok">Verified</span></td></tr>
-                <tr><td class="mono">clip_015.wav</td><td><span class="score"><span class="bar"><i style="--w:58%;--d:.1s"></i></span>2.9</span></td><td>Robotic stress on final word</td><td><span class="pill fix">Flagged</span></td></tr>
-              </tbody>
-            </table>
+            <p class="sample-input"><strong>Pilot input.</strong> Two voice renders of “Your delivery is scheduled for Friday.” Five listeners rate each clip on a 1–5 naturalness scale.</p>
+            <h4 class="sample-subhead" id="speech-mos">Individual clip ratings</h4>
+            <div class="output-scroll" role="region" aria-labelledby="speech-mos" tabindex="0">
+              <table class="dtable">
+                <thead><tr><th scope="col">Clip</th><th scope="col">Mean MOS</th><th scope="col">Listening note</th></tr></thead>
+                <tbody>
+                  <tr><td>A</td><td><span class="score"><span class="bar" aria-hidden="true"><i style="--w:88%"></i></span>4.4</span></td><td>The pause before “Friday” sounds natural. Slight sibilance on “scheduled.”</td></tr>
+                  <tr><td>B</td><td><span class="score"><span class="bar" aria-hidden="true"><i style="--w:60%"></i></span>3.0</span></td><td>The final syllable of “Friday” gets unusually strong stress.</td></tr>
+                </tbody>
+              </table>
             </div>
-            <div class="rationale"><small>CMOS comparison</small><strong>+1 · Version A preferred.</strong> A puts the stress on the expected syllable in the final word.</div>
-            <p class="output-note"><b>Delivered:</b> clip scores, pairwise preferences, and listening notes.</p>
+            <h4 class="sample-subhead" id="speech-cmos">A/B comparison records (CMOS)</h4>
+            <p class="sample-note">Positive scores favor the first clip, negative scores favor the second, and zero means no preference.</p>
+            <div class="output-scroll" role="region" aria-labelledby="speech-cmos" tabindex="0">
+              <table class="dtable">
+                <thead><tr><th scope="col">Pair</th><th scope="col">Score</th><th scope="col">Preference</th><th scope="col">Reason</th></tr></thead>
+                <tbody>
+                  <tr><td>A / B</td><td class="mono">+1</td><td>A slightly better</td><td>A uses more natural stress on “Friday” than B.</td></tr>
+                  <tr><td>C / D</td><td class="mono">−1</td><td>D slightly better</td><td>D connects the words smoothly. C inserts a pause mid-phrase.</td></tr>
+                  <tr><td>E / F</td><td class="mono">0</td><td>No preference</td><td>Both have comparable pacing and pronunciation, with the same slight end-of-line hiss.</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="output-note"><b>Delivered:</b> per-clip mean scores, comparison scores, and listening notes that support each decision.</p>
           </div>
         </div>
         <!-- Video -->
         <div class="panel" id="panel-video">
           <div class="panel-copy">
             <h3>Video</h3>
-            <p>Review AI-suggested action labels against the footage, correct start and end times, and flag hand–object interactions that are obscured in the frame.</p>
+            <p>Check each action against the footage frame by frame. A second reviewer verifies the start and end frames and records what is visible when an interaction is obscured.</p>
           </div>
           <div class="output">
             <div class="output-head">Sample output <em>illustrative</em></div>
-            <div class="output-scroll" role="region" aria-label="Sample video annotation timeline" tabindex="0">
-            <div class="timeline">
-              <div class="tl-ruler"><span>00:00</span><span>00:05</span><span>00:10</span><span>00:15</span><span>00:20</span></div>
-              <div class="tl-body">
-                <div class="tl-row"><span>AI draft</span><div class="tl-track"><span class="seg ai" style="--s:4%;--w:30%">pick_up</span><span class="seg ai" style="--s:40%;--w:22%">pour</span><span class="seg ai" style="--s:70%;--w:24%">place</span></div></div>
-                <div class="tl-row"><span>Verified</span><div class="tl-track"><span class="seg" style="--s:6%;--w:26%">pick_up</span><span class="seg" style="--s:36%;--w:30%">pour</span><span class="seg" style="--s:72%;--w:20%">place</span></div></div>
-                <div class="tl-row"><span>Flags</span><div class="tl-track"><span class="seg flag" style="--s:52%;--w:14%" role="img" aria-label="Hand occluded"></span></div></div>
+            <p class="sample-input"><strong>Pilot input.</strong> A 10-second clip at 30 frames per second. A person picks up a jug, pours water, and sets the jug down.</p>
+            <div class="output-scroll" role="region" aria-label="Draft and reviewed action timeline" tabindex="0">
+              <div class="timeline">
+                <div class="tl-ruler"><span>00:00</span><span>00:02</span><span>00:04</span><span>00:06</span><span>00:08</span><span>00:10</span></div>
+                <div class="tl-body">
+                  <div class="tl-row"><span>AI draft</span><div class="tl-track"><span class="seg ai" style="--s:11%;--w:22%">Pick up</span><span class="seg ai" style="--s:40.33%;--w:19%">Pour</span><span class="seg ai" style="--s:67%;--w:16%">Place</span></div></div>
+                  <div class="tl-row"><span>Verified</span><div class="tl-track"><span class="seg" style="--s:12%;--w:20%">Pick up</span><span class="seg" style="--s:42%;--w:16%">Pour</span><span class="seg" style="--s:68%;--w:14%">Place</span></div></div>
+                  <div class="tl-row"><span>Flags</span><div class="tl-track"><span class="seg flag" style="--s:52.33%;--w:3%" role="img" aria-label="Grip hidden at frames 157 to 165"></span></div></div>
+                </div>
               </div>
             </div>
+            <p class="sample-note">The grip is hidden in frames 157–165. The visible stream still supports the pour label.</p>
+            <h4 class="sample-subhead" id="video-frames">Second-pass frame check</h4>
+            <p class="sample-note">Frame 0 marks the start. Ranges include both endpoints. Timecodes use minutes:seconds:frames.</p>
+            <div class="output-scroll" role="region" aria-labelledby="video-frames" tabindex="0">
+              <table class="dtable">
+                <thead><tr><th scope="col">Action</th><th scope="col">Draft frames</th><th scope="col">Verified frames</th><th scope="col">Verified timecode</th><th scope="col">Boundary evidence</th></tr></thead>
+                <tbody>
+                  <tr><td>Pick up</td><td class="mono">33–98</td><td class="mono">36–95</td><td class="mono">00:01:06–00:03:05</td><td>Jug lifts off the counter and steadies in the hand.</td></tr>
+                  <tr><td>Pour</td><td class="mono">121–177</td><td class="mono">126–173</td><td class="mono">00:04:06–00:05:23</td><td>First visible stream through the final visible drop.</td></tr>
+                  <tr><td>Place</td><td class="mono">201–248</td><td class="mono">204–245</td><td class="mono">00:06:24–00:08:05</td><td>Jug moves down toward the counter and comes to rest.</td></tr>
+                </tbody>
+              </table>
             </div>
-            <div class="tl-legend"><span><i class="ai"></i>AI suggestion</span><span><i></i>Specialist-verified</span><span><i class="flag"></i>Flagged for review · Hand occluded</span></div>
-            <p class="output-note"><b>Delivered:</b> verified event labels with start and end times.</p>
+            <p class="output-note"><b>Delivered:</b> action labels, double-checked frame ranges and timecodes, and visibility flags.</p>
           </div>
         </div>
         <!-- Music -->
         <div class="panel" id="panel-music">
           <div class="panel-copy">
             <h3>Music</h3>
-            <p>Mark song sections against the audio, correct their start and end times, and tag the instruments audible in each section.</p>
+            <p>Identify section boundaries by ear, tag the instruments audible in each segment, and describe how the mood and tempo develop.</p>
           </div>
           <div class="output">
             <div class="output-head">Sample output <em>illustrative</em></div>
-            <div class="output-scroll" role="region" aria-label="Sample music section annotations" tabindex="0">
+            <p class="sample-input"><strong>Pilot input.</strong> A 50.4-second indie-pop excerpt with vocals, guitar, bass, drums, and a synth pad.</p>
+            <h4 class="sample-subhead" id="music-sections">Section annotations</h4>
+            <div class="output-scroll" role="region" aria-labelledby="music-sections" tabindex="0">
               <table class="dtable">
-                <thead><tr><th scope="col">Section</th><th scope="col">Time range</th><th scope="col">Instrument tags</th><th scope="col">Review note</th></tr></thead>
+                <thead><tr><th scope="col">Section</th><th scope="col">Time range</th><th scope="col">Instrument tags</th><th scope="col">Mood and tempo</th></tr></thead>
                 <tbody>
-                  <tr><td>Chorus</td><td class="mono">1:15.4–1:42.6</td><td>Electric guitar, bass, drums</td><td>Ends at the drum fill.</td></tr>
-                  <tr><td>Bridge</td><td class="mono">1:42.6–2:06.2</td><td>Synth pad, bass</td><td>Start moved earlier from 1:44.0.</td></tr>
+                  <tr><td>Verse</td><td class="mono">0:00.0–0:12.0</td><td>Clean guitar, bass, light drums</td><td>Reflective, 100 beats per minute (BPM)</td></tr>
+                  <tr><td>Chorus</td><td class="mono">0:12.0–0:31.2</td><td>Layered guitars, bass, full drum kit</td><td>Upbeat, 100 BPM with a denser rhythm</td></tr>
+                  <tr><td>Bridge</td><td class="mono">0:31.2–0:50.4</td><td>Synth pad, bass, sparse drums</td><td>Subdued, 100 BPM with a half-time feel</td></tr>
                 </tbody>
               </table>
             </div>
-            <p class="output-note"><b>Delivered:</b> a timestamped section map, verified instrument tags, and boundary corrections.</p>
+            <div class="rationale"><small>Boundary correction</small>The bridge starts at <strong>0:31.2</strong>, where the synth pad enters and the drum pattern opens up. The draft marked it at 0:32.0.</div>
+            <p class="output-note"><b>Delivered:</b> a timestamped section map, instrument tags, and section-level mood and tempo notes.</p>
           </div>
         </div>
         <!-- Image -->
         <div class="panel" id="panel-image">
           <div class="panel-copy">
             <h3>Image</h3>
-            <p>Check object labels against the image, adjust bounding boxes to the visible object edges, and flag cases where the category is unclear.</p>
+            <p>Confirm object labels, fit bounding boxes to the visible edges, and flag uncertain objects for another reviewer.</p>
           </div>
           <div class="output">
             <div class="output-head">Sample output <em>illustrative</em></div>
-            <div class="output-scroll" role="region" aria-label="Sample image annotation corrections" tabindex="0">
+            <p class="sample-input"><strong>Pilot input.</strong> A 1,000 × 600 image of a sorting station with a parcel and a partly hidden object.</p>
+            <figure class="image-example">
+              <div class="image-scene" aria-hidden="true">
+                <span class="image-parcel"></span>
+                <span class="image-obstruction"></span>
+                <span class="image-unknown"></span>
+                <span class="image-box image-box-draft"></span>
+                <span class="image-box image-box-verified"></span>
+                <span class="image-box image-box-flag"></span>
+              </div>
+              <figcaption class="tl-legend">
+                <span><i class="ai" aria-hidden="true"></i>Draft box</span>
+                <span><i aria-hidden="true"></i>Corrected parcel box</span>
+                <span><i class="flag" aria-hidden="true"></i>Uncertain object</span>
+              </figcaption>
+            </figure>
+            <h4 class="sample-subhead" id="image-boxes">Box coordinates and review flags</h4>
+            <p class="sample-note">Coordinates are in pixels, from the top-left corner to the bottom-right corner.</p>
+            <div class="output-scroll" role="region" aria-labelledby="image-boxes" tabindex="0">
               <table class="dtable">
-                <thead><tr><th scope="col">Object</th><th scope="col">Draft annotation</th><th scope="col">Reviewer update</th><th scope="col">Status</th></tr></thead>
+                <thead><tr><th scope="col">Draft</th><th scope="col">Reviewer update</th><th scope="col">Status</th></tr></thead>
                 <tbody>
-                  <tr><td class="mono">object_01</td><td>Backpack</td><td>Expanded the box to include the visible straps.</td><td><span class="pill ok">Corrected</span></td></tr>
-                  <tr><td class="mono">object_02</td><td>Water bottle</td><td>Only the cap is visible. Category needs review.</td><td><span class="pill fix">Flagged</span></td></tr>
+                  <tr><td>Parcel<br><span class="mono">(120, 90)–(540, 510)</span></td><td>Tighten the box to <span class="mono">(160, 120)–(460, 480)</span> to exclude empty counter space.</td><td><span class="pill ok">Verified</span></td></tr>
+                  <tr><td>Bottle<br><span class="mono">(680, 330)–(840, 450)</span></td><td>Only the top is visible. Keep the region for review and withhold the class label.</td><td><span class="pill fix">Flagged</span></td></tr>
                 </tbody>
               </table>
             </div>
-            <p class="output-note"><b>Delivered:</b> verified class labels, updated box coordinates, and review flags.</p>
+            <p class="output-note"><b>Delivered:</b> verified labels, tight bounding boxes, and an exception list for unresolved objects.</p>
           </div>
         </div>
         <!-- Model evaluation -->
         <div class="panel" id="panel-eval">
           <div class="panel-copy">
             <h3>Model evaluation</h3>
-            <p>Score candidate answers against a rubric, rank response pairs, and prepare corrected examples for supervised fine-tuning.</p>
+            <p>Score each answer against the same rubric, rank the responses, and write a corrected answer that preserves what the source supports.</p>
           </div>
           <div class="output">
             <div class="output-head">Sample output <em>illustrative</em></div>
+            <dl class="sample-review">
+              <div><dt>User prompt</dt><dd>“What format can I export my report in, and where do I find the option?”</dd></div>
+              <div><dt>Product guide</dt><dd>“Open Reports, select Export, then choose CSV. CSV is the only supported export format.”</dd></div>
+            </dl>
+            <h4 class="sample-subhead">Rubric scores out of 5</h4>
             <div class="rubric">
               <div class="resp win">
                 <div class="resp-head">Candidate A <span class="tag">Rank 1</span></div>
-                <div class="metric">Grounded<span class="bar"><i style="--w:94%"></i></span><b>4.7</b></div>
-                <div class="metric">Complete<span class="bar"><i style="--w:84%;--d:.1s"></i></span><b>4.2</b></div>
-                <div class="metric">Tone<span class="bar"><i style="--w:90%;--d:.2s"></i></span><b>4.5</b></div>
+                <p class="sample-answer">“You can download the report as CSV from Reports.”</p>
+                <div class="metric">Grounding<span class="bar" aria-hidden="true"><i style="--w:100%"></i></span><b>5</b></div>
+                <div class="metric">Completeness<span class="bar" aria-hidden="true"><i style="--w:80%"></i></span><b>4</b></div>
+                <div class="metric">Clarity<span class="bar" aria-hidden="true"><i style="--w:100%"></i></span><b>5</b></div>
               </div>
               <div class="resp">
                 <div class="resp-head">Candidate B <span class="tag muted">Rank 2</span></div>
-                <div class="metric">Grounded<span class="bar"><i style="--w:60%"></i></span><b>3.0</b></div>
-                <div class="metric">Complete<span class="bar"><i style="--w:76%;--d:.1s"></i></span><b>3.8</b></div>
-                <div class="metric">Tone<span class="bar"><i style="--w:88%;--d:.2s"></i></span><b>4.4</b></div>
+                <p class="sample-answer">“Go to Settings to export a CSV or PDF.”</p>
+                <div class="metric">Grounding<span class="bar" aria-hidden="true"><i style="--w:40%"></i></span><b>2</b></div>
+                <div class="metric">Completeness<span class="bar" aria-hidden="true"><i style="--w:40%"></i></span><b>2</b></div>
+                <div class="metric">Clarity<span class="bar" aria-hidden="true"><i style="--w:80%"></i></span><b>4</b></div>
               </div>
             </div>
-            <div class="rationale"><small>Ranking rationale &amp; revision</small>Candidate B claims a PDF export the supplied product guide does not list. Revision: “You can export the report as <del>CSV or PDF</del> <ins>CSV</ins>.”</div>
-            <p class="output-note"><b>Delivered:</b> rubric scores, ranking rationales, and revised responses.</p>
+            <div class="rationale"><small>Ranking rationale</small>A gets the format and page right but omits the Export step. B adds unsupported PDF export and points to the wrong page.</div>
+            <div class="rationale"><small>Rewritten answer</small>“CSV is the only supported format. Open Reports, select Export, then choose CSV.”</div>
+            <p class="output-note"><b>Delivered:</b> criterion-level scores, a ranked pair with rationale, and a corrected training answer.</p>
           </div>
         </div>
         <!-- Medical evaluation -->
         <div class="panel" id="panel-medical">
           <div class="panel-copy">
             <h3>Medical evaluation</h3>
-            <p>Clinical reviewers compare a model’s summary with the supplied record, checking details such as laterality and flagging findings the source does not support.</p>
+            <p>Review clinical text claim by claim. Link each finding to the exact source line, correct contradictions, and flag claims the supplied record does not support.</p>
           </div>
           <div class="output">
-            <div class="output-head">Sample output <em>illustrative</em></div>
+            <div class="output-head">Sample output <em>fictional record</em></div>
             <dl class="sample-review">
-              <div><dt>Source excerpt</dt><dd>“The patient reported pain in the left knee after walking.”</dd></div>
-              <div><dt>Model draft</dt><dd>“The patient reported right knee pain and swelling after walking.”</dd></div>
-              <div><dt>Reviewer correction</dt><dd>“The patient reported left knee pain after walking.” <span class="pill fix">Source mismatch</span></dd></div>
+              <div><dt>Visit note · L1</dt><dd>“The patient reported left knee pain after walking.”</dd></div>
+              <div><dt>Visit note · L2</dt><dd>“No swelling was observed.”</dd></div>
+              <div><dt>Model draft</dt><dd>“The patient reported right knee pain after walking, had swelling, and was unable to climb stairs.”</dd></div>
             </dl>
-            <p class="output-note"><b>Delivered:</b> the corrected summary, source excerpt, and flags for incorrect laterality and unsupported findings.</p>
+            <h4 class="sample-subhead" id="medical-claims">Claim audit</h4>
+            <div class="output-scroll" role="region" aria-labelledby="medical-claims" tabindex="0">
+              <table class="dtable">
+                <thead><tr><th scope="col">Draft claim</th><th scope="col">Source</th><th scope="col">Reviewer finding</th></tr></thead>
+                <tbody>
+                  <tr><td>Pain after walking</td><td class="mono">L1</td><td>Supported. Keep the activity and symptom.</td></tr>
+                  <tr><td>Right knee</td><td class="mono">L1</td><td>Contradicted. Change right to left.</td></tr>
+                  <tr><td>Swelling present</td><td class="mono">L2</td><td>Contradicted. The note records no observed swelling.</td></tr>
+                  <tr><td>Unable to climb stairs</td><td>None</td><td>Unsupported. The supplied note does not address stairs. Remove the claim.</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="rationale"><small>Corrected summary</small>“The patient reported left knee pain after walking [L1]. No swelling was observed [L2].”</div>
+            <p class="output-note"><b>Delivered:</b> a corrected summary, line-level citations, and a log of contradicted or unsupported claims.</p>
           </div>
         </div>
         <!-- Legal evaluation -->
         <div class="panel" id="panel-legal">
           <div class="panel-copy">
             <h3>Legal evaluation</h3>
-            <p>Legal reviewers check a model’s contract summary against the supplied clauses, verify citations, and flag missing conditions or exceptions.</p>
+            <p>Check each contract claim against the supplied agreement, cite the exact clause for every finding, and flag omitted conditions or exceptions.</p>
           </div>
           <div class="output">
-            <div class="output-head">Sample output <em>illustrative</em></div>
+            <div class="output-head">Sample output <em>fictional agreement</em></div>
             <dl class="sample-review">
-              <div><dt>Source excerpt</dt><dd>“Either party may terminate this agreement on 30 days’ written notice.” (§ 8.1)</dd></div>
-              <div><dt>Model draft</dt><dd>“Either party can terminate the agreement with 60 days’ notice.”</dd></div>
-              <div><dt>Reviewer correction</dt><dd>“Either party may terminate on 30 days’ written notice (§ 8.1).” <span class="pill fix">Condition missing</span></dd></div>
+              <div><dt>§ 8.1 · Termination</dt><dd>“Either party may terminate this agreement on 30 days’ written notice.”</dd></div>
+              <div><dt>§ 11.2 · Delivery of notices</dt><dd>“Notices must be sent by tracked mail to the receiving party’s address in Schedule A.”</dd></div>
+              <div><dt>Model draft</dt><dd>“Either party can terminate with 60 days’ notice by email.”</dd></div>
             </dl>
-            <p class="output-note"><b>Delivered:</b> a clause-level correction, verified citation, and flags for the notice period and written-notice condition.</p>
+            <h4 class="sample-subhead" id="legal-claims">Clause-level findings</h4>
+            <div class="output-scroll" role="region" aria-labelledby="legal-claims" tabindex="0">
+              <table class="dtable">
+                <thead><tr><th scope="col">Draft claim</th><th scope="col">Exact clause</th><th scope="col">Reviewer finding</th></tr></thead>
+                <tbody>
+                  <tr><td>Either party may terminate</td><td class="mono">§ 8.1</td><td>Supported. Preserve the right for both parties.</td></tr>
+                  <tr><td>60 days’ notice</td><td class="mono">§ 8.1</td><td>Correct to 30 days and restore the written-notice requirement.</td></tr>
+                  <tr><td>Notice by email</td><td class="mono">§ 11.2</td><td>Replace with tracked mail to the receiving party’s Schedule A address.</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="rationale"><small>Cited rewrite</small>“Either party may terminate on 30 days’ written notice (§ 8.1). Send the notice by tracked mail to the receiving party’s address in Schedule A (§ 11.2).”</div>
+            <p class="output-note"><b>Delivered:</b> a claim-by-claim review, exact clause citations, and a corrected contract summary.</p>
           </div>
         </div>
       </div>
