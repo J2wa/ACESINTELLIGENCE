@@ -79,6 +79,7 @@ test('handleJobs proxies and normalizes JSON from the j2work /api/jobs endpoint'
 test('handleJobs falls back to parsing j2work /careers HTML when /api/jobs is not yet deployed', async () => {
   const sampleHtml = `
     <ul class="role-list" role="list">
+      <li class="role-row"><h2><a href="/careers/jobs/broken%zz">Malformed listing</a></h2></li>
       <li class="role-row">
         <div class="role-row-details">
           <h2><a href="/careers/jobs/multimodal-annotator">Multimodal Data &amp; Video Annotator</a></h2>
@@ -147,6 +148,27 @@ test('handleJobs falls back to parsing j2work /careers HTML when /api/jobs is no
 test('parseCareersHtml returns empty array when no roles are open', () => {
   const html = '<p class="empty-roles">No open roles right now.</p>';
   assert.deepEqual(parseCareersHtml(html, ORIGIN), []);
+});
+
+test('handleJobs can distinguish an empty board from an unavailable board', async () => {
+  const request = new Request('https://acesintelligence.xyz/api/jobs');
+  const fetchBoard = (html) => async (url) => url.endsWith('/api/jobs')
+    ? new Response(null, { status: 503 })
+    : new Response(html);
+  const empty = await handleJobs(request, {
+    env: {},
+    fetchImpl: fetchBoard('<p class="empty-roles">No open roles right now.</p>'),
+  });
+  assert.equal(empty.status, 200);
+  assert.deepEqual(await empty.json(), {
+    careersUrl: `${ORIGIN}/careers`,
+    count: 0,
+    jobs: [],
+    source: 'html',
+  });
+
+  const unavailable = await handleJobs(request, { env: {}, fetchImpl: fetchBoard('<h1>Maintenance</h1>') });
+  assert.equal(unavailable.status, 503);
 });
 
 test('handleJobs returns 503 with careersUrl fallback when upstream is unreachable', async () => {

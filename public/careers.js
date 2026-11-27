@@ -46,6 +46,7 @@
   }
 
   function safeHref(url, fallback) {
+    if (typeof url !== 'string' || !url.trim()) return fallback;
     try {
       const parsed = new URL(url, DEFAULT_CAREERS_BASE);
       if (parsed.protocol === 'https:' || parsed.protocol === 'http:') return parsed.toString();
@@ -112,13 +113,10 @@
       const actions = el('div', 'jobs-state-actions');
       const signup = el('a', 'btn');
       signup.href = `${DEFAULT_CAREERS_BASE}/signup`;
-      signup.append('Create a profile on ACES Careers ');
-      const arrow = el('span', null, '↗');
-      arrow.setAttribute('aria-hidden', 'true');
-      signup.appendChild(arrow);
+      signup.textContent = 'Create a profile on ACES Careers';
       actions.appendChild(signup);
 
-      const board = el('a', 'text-link', 'Visit ACES Careers ↗');
+      const board = el('a', 'text-link', 'Visit ACES Careers');
       board.href = careersUrl;
       actions.appendChild(board);
       box.appendChild(actions);
@@ -145,10 +143,7 @@
 
     const visit = el('a', 'btn');
     visit.href = careersUrl;
-    visit.append('Open ACES Careers ');
-    const arrow = el('span', null, '↗');
-    arrow.setAttribute('aria-hidden', 'true');
-    visit.appendChild(arrow);
+    visit.textContent = 'Open ACES Careers';
     actions.appendChild(visit);
 
     const retry = el('button', 'careers-clear-btn', 'Try again');
@@ -233,10 +228,7 @@
     const applyBtn = el('a', 'btn job-apply-btn');
     applyBtn.href = listingUrl;
     applyBtn.setAttribute('aria-label', `Apply for ${job.title} on ACES Careers`);
-    applyBtn.append('Apply ');
-    const arrow = el('span', null, '↗');
-    arrow.setAttribute('aria-hidden', 'true');
-    applyBtn.appendChild(arrow);
+    applyBtn.textContent = 'Apply';
     actions.appendChild(applyBtn);
     li.appendChild(actions);
 
@@ -336,7 +328,10 @@
     let lastError = null;
     for (const endpoint of endpoints) {
       try {
-        const response = await fetch(endpoint, { headers: { Accept: 'application/json' } });
+        const response = await fetch(endpoint, {
+          headers: { Accept: 'application/json' },
+          signal: AbortSignal.timeout?.(10000),
+        });
         if (!response.ok) {
           lastError = new Error(`HTTP ${response.status}`);
           continue;

@@ -637,3 +637,74 @@
     animation: none;
   }
 }
+
+/* Layout for the application steps and careers call to action. */
+.careers-steps,
+.careers-cta {
+  padding: clamp(64px, 8vw, 110px) 0;
+}
+
+.careers-steps .section-heading,
+.careers-cta .contact-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: end;
+  gap: clamp(32px, 5vw, 72px);
+}
+
+.careers-steps .section-heading {
+  margin: 20px 0 44px;
+}
+
+.careers-steps h2,
+.careers-cta h2 {
+  margin: 0;
+  font-size: clamp(36px, 4.4vw, 62px);
+  letter-spacing: -0.035em;
+  line-height: 1.06;
+}
+
+.careers-steps .section-heading p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.careers-cta {
+  color: #fff;
+  background: var(--blue);
+}
+
+.careers-cta .eyebrow {
+  margin-bottom: 16px;
+  color: #e3ebff;
+}
+
+.careers-cta .btn {
+  color: var(--blue);
+  background: #fff;
+}
+
+.careers-cta .email-address {
+  display: block;
+  margin-top: 14px;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.careers-hero-actions .btn,
+.jobs-state-actions .btn,
+.careers-cta .btn {
+  width: auto;
+}
+
+.careers-cta a:focus-visible {
+  outline-color: #fff;
+}
+
+@media (max-width: 760px) {
+  .careers-steps .section-heading,
+  .careers-cta .contact-grid {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+}
