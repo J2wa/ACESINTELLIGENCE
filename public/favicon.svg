@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="310 250 660 600" role="img" aria-label="ACES Intelligence">
+  <style>
+    .mark { fill: #0A3594; }
+    @media (prefers-color-scheme: dark) {
+      .mark { fill: #FFFFFF; }
+    }
+  </style>
+  <g class="mark">
+    <path d="M342 783L797 327V706H863V452H940V783H720V517L528 706H672V783Z"/>
+    <rect x="863" y="327" width="77" height="78"/>
+  </g>
+</svg>
