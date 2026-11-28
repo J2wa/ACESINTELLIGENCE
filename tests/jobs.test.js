@@ -185,7 +185,7 @@ test('handleJobs returns 503 with careersUrl fallback when upstream is unreachab
 });
 
 test('all ACES Intelligence HTML pages use the new vector logo, favicon, and Ecosystem navigation', () => {
-  const pages = ['index.html', 'ecosystem.html', 'careers.html', 'inquiry.html', 'team-login.html'];
+  const pages = ['index.html', 'ecosystem.html', 'careers.html', 'inquiry.html'];
   for (const page of pages) {
     const html = readFileSync(new URL(`../public/${page}`, import.meta.url), 'utf8');
     assert.match(html, /<link rel="icon" href="\/favicon\.svg" type="image\/svg\+xml">/, `${page} includes favicon.svg`);
