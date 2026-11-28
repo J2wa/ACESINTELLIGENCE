@@ -184,8 +184,8 @@ test('handleJobs returns 503 with careersUrl fallback when upstream is unreachab
   assert.deepEqual(body.jobs, []);
 });
 
-test('all ACES Intelligence HTML pages use the new vector logo, favicon, and Business navigation', () => {
-  const pages = ['index.html', 'careers.html', 'inquiry.html', 'team-login.html'];
+test('all ACES Intelligence HTML pages use the new vector logo, favicon, and Ecosystem navigation', () => {
+  const pages = ['index.html', 'ecosystem.html', 'careers.html', 'inquiry.html', 'team-login.html'];
   for (const page of pages) {
     const html = readFileSync(new URL(`../public/${page}`, import.meta.url), 'utf8');
     assert.match(html, /<link rel="icon" href="\/favicon\.svg" type="image\/svg\+xml">/, `${page} includes favicon.svg`);
@@ -193,9 +193,15 @@ test('all ACES Intelligence HTML pages use the new vector logo, favicon, and Bus
     assert.match(html, /<aces-logo\b[^>]*class="aces-logo-mark"/, `${page} uses interactive header logo`);
     assert.match(html, /<aces-logo\b[^>]*class="aces-logo-footer"/, `${page} uses interactive footer logo`);
     assert.doesNotMatch(html, /class="aces-mark"/, `${page} no longer uses placeholder A. mark`);
+    assert.doesNotMatch(html, /class="aces-eco-bar/, `${page} does not render the sub-site top ecosystem bar`);
+    assert.match(html, /\/ecosystem/, `${page} links to the dedicated Ecosystem page`);
     assert.match(html, /https:\/\/business\.acesintelligence\.xyz/, `${page} links to ACES Business`);
-    assert.doesNotMatch(html, /agents\.acesintelligence\.xyz|AI Agents/i, `${page} removes AI Agents references`);
+    assert.match(html, /https:\/\/agents\.acesintelligence\.xyz/, `${page} links to ACES Agents`);
   }
+  const ecosystemHtml = readFileSync(new URL('../public/ecosystem.html', import.meta.url), 'utf8');
+  assert.match(ecosystemHtml, /ACES Business/, 'ecosystem.html showcases ACES Business');
+  assert.match(ecosystemHtml, /ACES Agents/, 'ecosystem.html showcases ACES Agents');
+  assert.match(ecosystemHtml, /Main Homepage/i, 'ecosystem.html clearly presents ACES Intelligence as the main homepage');
   const careersHtml = readFileSync(new URL('../public/careers.html', import.meta.url), 'utf8');
   const careersCss = readFileSync(new URL('../public/careers.css', import.meta.url), 'utf8');
   assert.doesNotMatch(careersHtml, /careers-outbound/, 'careers.html footer links match shared chrome styling');

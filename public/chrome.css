@@ -56,6 +56,7 @@
   .aces-footer-top>div:first-child{grid-column:1/-1}
   .aces-header:not(.is-enhanced) + main .hero,
   .aces-header:not(.is-enhanced) + main .careers-hero,
+  .aces-header:not(.is-enhanced) + main .eco-hero,
   .aces-header:not(.is-enhanced) + .form-main{padding-top:48px}
 }
 @media(max-width:520px){
