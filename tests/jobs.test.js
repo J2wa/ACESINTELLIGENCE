@@ -184,7 +184,7 @@ test('handleJobs returns 503 with careersUrl fallback when upstream is unreachab
   assert.deepEqual(body.jobs, []);
 });
 
-test('all ACES Intelligence HTML pages use the new vector logo, favicon, and Business navigation', () => {
+test('all ACES Intelligence HTML pages use the new vector logo, favicon, and Business + Agents navigation', () => {
   const pages = ['index.html', 'careers.html', 'inquiry.html', 'team-login.html'];
   for (const page of pages) {
     const html = readFileSync(new URL(`../public/${page}`, import.meta.url), 'utf8');
@@ -194,8 +194,11 @@ test('all ACES Intelligence HTML pages use the new vector logo, favicon, and Bus
     assert.match(html, /<aces-logo\b[^>]*class="aces-logo-footer"/, `${page} uses interactive footer logo`);
     assert.doesNotMatch(html, /class="aces-mark"/, `${page} no longer uses placeholder A. mark`);
     assert.match(html, /https:\/\/business\.acesintelligence\.xyz/, `${page} links to ACES Business`);
-    assert.doesNotMatch(html, /agents\.acesintelligence\.xyz|AI Agents/i, `${page} removes AI Agents references`);
+    assert.match(html, /<a href="https:\/\/agents\.acesintelligence\.xyz">Agents<\/a>/, `${page} links to ACES Agents in nav`);
   }
+  const indexHtml = readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
+  assert.match(indexHtml, /Explore ACES Business/, 'index.html includes Explore ACES Business link');
+  assert.match(indexHtml, /<a class="link-arrow" href="https:\/\/agents\.acesintelligence\.xyz">Explore ACES Agents<\/a>/, 'index.html includes Explore ACES Agents link');
   const careersHtml = readFileSync(new URL('../public/careers.html', import.meta.url), 'utf8');
   const careersCss = readFileSync(new URL('../public/careers.css', import.meta.url), 'utf8');
   assert.doesNotMatch(careersHtml, /careers-outbound/, 'careers.html footer links match shared chrome styling');
