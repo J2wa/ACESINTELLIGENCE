@@ -6,7 +6,7 @@
 /* ---------- Header ---------- */
 .aces-header{position:fixed;inset:0 0 auto;z-index:50;background:rgba(255,255,255,.72);-webkit-backdrop-filter:saturate(1.6) blur(16px);backdrop-filter:saturate(1.6) blur(16px);border-bottom:1px solid transparent;transition:background .3s ease,border-color .3s ease,box-shadow .3s ease}
 .aces-header.is-scrolled{background:rgba(255,255,255,.9);border-bottom-color:var(--c-line);box-shadow:0 10px 30px -18px rgba(10,20,48,.25)}
-.aces-bar{max-width:1320px;min-height:76px;padding:12px clamp(20px,4vw,48px);margin:auto;display:flex;align-items:center;justify-content:space-between;gap:28px}
+.aces-bar{max-width:1240px;min-height:76px;padding:12px clamp(20px,4vw,40px);margin:auto;display:flex;align-items:center;justify-content:space-between;gap:28px}
 .aces-brand{display:inline-flex;align-items:center;gap:11px;font-family:'Satoshi',system-ui,sans-serif;font-size:14px;font-weight:900;letter-spacing:.06em;line-height:1.05;text-decoration:none;flex-shrink:0;color:var(--c-ink)}
 .aces-logo-mark,.aces-logo-footer{display:inline-block;flex-shrink:0;aspect-ratio:640/500;width:var(--aces-size)}
 .aces-logo-mark{--aces-size:50px}
@@ -26,7 +26,7 @@
 /* ---------- Footer ---------- */
 .aces-footer{position:relative;padding:72px 0 28px;background:var(--c-ink);color:#fff;overflow:hidden}
 .aces-footer:before{content:'';position:absolute;inset:auto -10% -60% auto;width:60vw;height:60vw;max-width:780px;max-height:780px;border-radius:50%;background:radial-gradient(circle,rgba(21,72,237,.35),transparent 65%);pointer-events:none}
-.aces-footer-inner{position:relative;max-width:1320px;padding:0 clamp(20px,4vw,48px);margin:auto}
+.aces-footer-inner{position:relative;max-width:1240px;padding:0 clamp(20px,4vw,40px);margin:auto}
 .aces-footer-top{display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:48px;align-items:start;padding-bottom:56px}
 .aces-footer .aces-brand{color:#fff}
 .aces-footer-top p{font-size:15px;color:#a9b6d3;margin:18px 0 0;max-width:260px}

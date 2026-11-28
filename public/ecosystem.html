@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Ecosystem — ACES Intelligence</title>
+  <title>ACES Intelligence — Ecosystem</title>
   <meta name="description" content="Explore the ACES Intelligence Ecosystem from our main homepage at acesintelligence.xyz—including our live websites ACES Business, ACES Agents, and ACES Careers.">
   <meta name="theme-color" content="#1548ed">
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
@@ -11,7 +11,7 @@
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="ACES Intelligence">
   <meta property="og:url" content="https://acesintelligence.xyz/ecosystem">
-  <meta property="og:title" content="Ecosystem — ACES Intelligence">
+  <meta property="og:title" content="ACES Intelligence — Ecosystem">
   <meta property="og:description" content="ACES Intelligence is the main homepage for everything we build. Explore our currently available websites: ACES Business, ACES Agents, and ACES Careers.">
   <link rel="preconnect" href="https://api.fontshare.com" crossorigin>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -21,30 +21,32 @@
   <link rel="stylesheet" href="/ecosystem.css">
   <script src="/aces-logo.js" defer></script>
   <script src="/chrome.js" defer></script>
+  <script src="/ecosystem.js" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#available-websites">Skip to available websites</a>
-  <header class="aces-header"><div class="aces-bar"><a class="aces-brand" href="/" aria-label="ACES Intelligence home"><aces-logo class="aces-logo-mark" wordmark="hide" animate="none" aria-hidden="true"><img src="/logo.svg" alt="" width="50" height="39"></aces-logo><span>ACES<br>INTELLIGENCE</span></a><button class="aces-menu" type="button" aria-expanded="false" aria-controls="aces-navigation">Menu <span aria-hidden="true">☰</span></button><nav class="aces-navigation" id="aces-navigation" aria-label="Main navigation"><a href="/#services">Services</a><a href="/#professionals">Professionals</a><a href="/ecosystem" aria-current="page">Ecosystem</a><a href="/careers">Careers</a><a class="aces-workzone" href="https://workplace.acesintelligence.xyz">Workzone login</a><a href="/inquiry">Message ACES</a></nav></div></header>
+  <header class="aces-header"><div class="aces-bar"><a class="aces-brand" href="/" aria-label="ACES Intelligence home"><aces-logo class="aces-logo-mark" wordmark="hide" animate="none" aria-hidden="true"><img src="/logo.svg" alt="" width="50" height="39"></aces-logo><span>ACES<br>INTELLIGENCE</span></a><button class="aces-menu" type="button" aria-expanded="false" aria-controls="aces-navigation">Menu <span aria-hidden="true">☰</span></button><nav class="aces-navigation" id="aces-navigation" aria-label="Main navigation"><a href="/#services">Services</a><a href="/#professionals">Professionals</a><a href="/ecosystem" aria-current="page">Ecosystem</a><a href="/careers">Careers</a><a class="aces-workzone" href="https://workplace.acesintelligence.xyz">Workzone login</a><a href="/inquiry">Message ACES</a></nav></div><div class="eco-scroll-progress" id="scrollProgress" aria-hidden="true"></div></header>
 
   <main id="top" tabindex="-1">
     <!-- Hero -->
-    <section class="eco-hero" aria-labelledby="eco-hero-title">
+    <section class="eco-hero" data-hero-glow="" aria-labelledby="eco-hero-title">
+      <div class="eco-hero-glow" aria-hidden="true"></div>
       <div class="shell">
-        <div class="eco-hero-top reveal">
-          <div class="eyebrow">ACES Intelligence / Ecosystem</div>
+        <div class="eco-hero-top" data-reveal="">
+          <div class="eyebrow">ACES Intelligence / Interactive Ecosystem</div>
           <span class="label">ACESINTELLIGENCE.XYZ · MAIN HOMEPAGE</span>
         </div>
-        <h1 id="eco-hero-title" class="reveal delay">One home.<span>Every ACES website.</span></h1>
-        <div class="eco-hero-bottom reveal delay">
+        <h1 id="eco-hero-title" data-reveal="" data-delay="60">One home.<span>Every ACES website.</span></h1>
+        <div class="eco-hero-bottom" data-reveal="" data-delay="120">
           <p class="eco-hero-copy">
-            <strong>ACES Intelligence</strong> (<code>acesintelligence.xyz</code>) is the main homepage for everything we build—connecting our flagship AI data annotation and model evaluation services with our dedicated live websites across the ACES Ecosystem.
+            <strong>ACES Intelligence</strong> (<code>acesintelligence.xyz</code>) is the main homepage for everything we build—connecting our flagship AI data annotation and model evaluation services with our live ecosystem websites.
           </p>
           <div class="eco-hero-actions">
-            <a class="eco-btn eco-btn-primary" href="#available-websites">Explore live websites</a>
+            <a class="eco-btn eco-btn-primary" href="#available-websites" data-magnetic="">Explore live websites</a>
             <a class="eco-btn eco-btn-secondary" href="/">Back to main homepage</a>
           </div>
         </div>
-        <div class="eco-stats">
+        <div class="eco-stats" data-reveal="" data-delay="180">
           <div class="eco-stat">
             <span class="eco-stat-label">Main Homepage</span>
             <span class="eco-stat-value">acesintelligence.xyz</span>
@@ -61,33 +63,58 @@
       </div>
     </section>
 
-    <!-- Central Hub Banner -->
+    <!-- Interactive Ecosystem Explorer -->
     <section class="eco-hub-band" aria-labelledby="eco-hub-title">
       <div class="shell">
-        <div class="eco-hub-card reveal">
-          <div>
-            <div class="eco-hub-meta">
-              <span class="eco-hub-badge">Main Homepage · Hub for Everything</span>
-              <span class="eco-hub-domain">acesintelligence.xyz</span>
+        <div class="eco-explorer" id="ecoExplorer" data-reveal="">
+          <div class="eco-explorer-top">
+            <div>
+              <div class="eco-hub-meta">
+                <span class="eco-hub-badge">Interactive Ecosystem Map</span>
+                <span class="eco-hub-domain">acesintelligence.xyz</span>
+              </div>
+              <h2 id="eco-hub-title">See how ACES Intelligence connects.</h2>
             </div>
-            <h2 id="eco-hub-title">ACES Intelligence</h2>
-            <p>
-              Start here for everything ACES—human-reviewed AI training data, multimodal annotation, model evaluation, and direct access to every live website in the ACES Intelligence Ecosystem.
-            </p>
+            <div class="eco-explorer-tabs" role="tablist" aria-label="Inspect live ACES websites">
+              <button type="button" class="eco-exp-tab is-active" data-eco-idx="0" role="tab" aria-selected="true">ACES Business</button>
+              <button type="button" class="eco-exp-tab" data-eco-idx="1" role="tab" aria-selected="false">ACES Agents</button>
+              <button type="button" class="eco-exp-tab" data-eco-idx="2" role="tab" aria-selected="false">ACES Careers</button>
+            </div>
           </div>
-          <div class="eco-hub-links" aria-label="Main ACES Intelligence pages">
-            <a class="eco-hub-link" href="/">
-              <span>ACES Intelligence Homepage</span>
-              <span>/</span>
-            </a>
-            <a class="eco-hub-link" href="/#services">
-              <span>AI Data &amp; Model Evaluation</span>
-              <span>/#services</span>
-            </a>
-            <a class="eco-hub-link" href="/inquiry">
-              <span>Project Inquiries</span>
-              <span>/inquiry</span>
-            </a>
+
+          <div class="eco-explorer-stage" id="ecoStage" aria-live="polite">
+            <div class="eco-node eco-node--hub">
+              <span class="eco-node-kicker">Main Homepage</span>
+              <strong>ACES Intelligence</strong>
+              <span class="eco-node-sub">acesintelligence.xyz · Core AI data, evaluation &amp; central hub</span>
+            </div>
+            <div class="eco-beam" aria-hidden="true">
+              <span class="eco-beam-line"></span>
+              <span class="eco-beam-pulse"></span>
+            </div>
+            <div class="eco-node eco-node--active">
+              <span class="eco-node-kicker" id="ecoNodeDomain">business.acesintelligence.xyz</span>
+              <strong id="ecoNodeName">ACES Business</strong>
+              <span class="eco-node-sub" id="ecoNodeSummary">Operational websites, booking platforms, retail POS, payroll &amp; wholesale B2B systems.</span>
+            </div>
+            <div class="eco-beam" aria-hidden="true">
+              <span class="eco-beam-line"></span>
+              <span class="eco-beam-pulse eco-beam-pulse--delayed"></span>
+            </div>
+            <div class="eco-node eco-node--outcome">
+              <span class="eco-node-kicker" id="ecoOutcomeLabel">Live Interactive Samples</span>
+              <strong id="ecoOutcomeText">Explore storefront-to-dashboard demos built for real daily operations.</strong>
+            </div>
+          </div>
+
+          <div class="eco-explorer-foot">
+            <div class="eco-progress-wrap" aria-hidden="true">
+              <div class="eco-progress-bar" id="ecoProgressBar"></div>
+            </div>
+            <div class="eco-explorer-foot-row">
+              <button type="button" class="eco-play-toggle" id="ecoTogglePlay" aria-label="Pause auto-cycle">Pause</button>
+              <a class="eco-launch-link" id="ecoLaunchBtn" href="https://business.acesintelligence.xyz">Visit ACES Business ↗</a>
+            </div>
           </div>
         </div>
       </div>
@@ -96,17 +123,25 @@
     <!-- Available Websites Right Now -->
     <section class="eco-sites" id="available-websites" tabindex="-1" aria-labelledby="available-websites-heading">
       <div class="shell">
-        <div class="eco-section-head">
+        <div class="eco-section-head" data-reveal="">
           <div>
             <div class="eyebrow">01 / Available right now</div>
             <h2 id="available-websites-heading">Live websites in the <span class="serif">ACES ecosystem.</span></h2>
           </div>
-          <p>Three dedicated websites are live today under ACES Intelligence—each purpose-built so clients, teams, and specialists can jump straight in.</p>
+          <p>Three dedicated websites are live today under ACES Intelligence—filter by focus area or jump straight into any platform.</p>
         </div>
 
-        <div class="eco-grid">
+        <div class="eco-filter-wrap" id="ecoFilters" role="tablist" aria-label="Filter ecosystem websites" data-reveal="" data-delay="60">
+          <div class="eco-filter-slider" id="ecoFilterSlider" aria-hidden="true"></div>
+          <button type="button" class="eco-filter-btn is-active" data-eco-filter="all" role="tab" aria-selected="true">All Live Websites</button>
+          <button type="button" class="eco-filter-btn" data-eco-filter="business" role="tab" aria-selected="false">Business Software</button>
+          <button type="button" class="eco-filter-btn" data-eco-filter="agents" role="tab" aria-selected="false">AI Workforce</button>
+          <button type="button" class="eco-filter-btn" data-eco-filter="careers" role="tab" aria-selected="false">Careers &amp; Talent</button>
+        </div>
+
+        <div class="eco-grid" id="ecoGrid">
           <!-- Website 01: ACES Business -->
-          <article class="site-card" id="site-aces-business">
+          <article class="site-card" id="site-aces-business" data-eco-cat="business" data-reveal="" data-delay="0" data-tilt="">
             <div class="site-card-top">
               <div class="site-card-id">
                 <span class="site-card-icon" aria-hidden="true">
@@ -148,7 +183,7 @@
             </ul>
 
             <div class="site-card-actions">
-              <a class="eco-btn eco-btn-primary" id="eco-cta-business" href="https://business.acesintelligence.xyz">
+              <a class="eco-btn eco-btn-primary" id="eco-cta-business" href="https://business.acesintelligence.xyz" data-magnetic="">
                 <span>Visit ACES Business</span>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9"/></svg>
               </a>
@@ -156,7 +191,7 @@
           </article>
 
           <!-- Website 02: ACES Agents -->
-          <article class="site-card" id="site-aces-agents">
+          <article class="site-card" id="site-aces-agents" data-eco-cat="agents" data-reveal="" data-delay="80" data-tilt="">
             <div class="site-card-top">
               <div class="site-card-id">
                 <span class="site-card-icon" aria-hidden="true">
@@ -198,7 +233,7 @@
             </ul>
 
             <div class="site-card-actions">
-              <a class="eco-btn eco-btn-primary" id="eco-cta-agents" href="https://agents.acesintelligence.xyz">
+              <a class="eco-btn eco-btn-primary" id="eco-cta-agents" href="https://agents.acesintelligence.xyz" data-magnetic="">
                 <span>Visit ACES Agents</span>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9"/></svg>
               </a>
@@ -209,7 +244,7 @@
           </article>
 
           <!-- Website 03: ACES Careers -->
-          <article class="site-card" id="site-aces-careers">
+          <article class="site-card" id="site-aces-careers" data-eco-cat="careers" data-reveal="" data-delay="160" data-tilt="">
             <div class="site-card-top">
               <div class="site-card-id">
                 <span class="site-card-icon" aria-hidden="true">
@@ -221,7 +256,7 @@
             </div>
 
             <h3>ACES Careers</h3>
-            <span class="site-card-url">acesintelligence.xyz/careers</span>
+            <span class="site-card-url">careers.acesintelligence.xyz</span>
             <p class="site-card-desc">
               Join our network of domain specialists, multimodal evaluators, quality leads, and engineers building accurate, human-reviewed AI.
             </p>
@@ -231,32 +266,32 @@
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>
                 <div>
                   <strong>Live Open Roles Board</strong>
-                  <span>Browse current openings synced directly from ACES Careers with instant search and filters.</span>
+                  <span>Browse current openings on ACES Careers with instant search, filters, and transparent rates.</span>
                 </div>
               </li>
               <li>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>
                 <div>
-                  <strong>One Profile, Direct Apply</strong>
-                  <span>Upload your résumé once and apply across healthcare, legal, finance, engineering, and media roles.</span>
+                  <strong>One Profile &amp; Specialist Pool</strong>
+                  <span>Upload your résumé once to apply in one click, or join the Domain Specialist Talent Pool.</span>
                 </div>
               </li>
               <li>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>
                 <div>
                   <strong>Remote · Philippines &amp; Global</strong>
-                  <span>Flexible project-based, part-time, and full-time roles with clear rubrics and transparent rates.</span>
+                  <span>Flexible project-based, part-time, and full-time roles with PHP and USD hourly rates.</span>
                 </div>
               </li>
             </ul>
 
             <div class="site-card-actions">
-              <a class="eco-btn eco-btn-primary" id="eco-cta-careers" href="/careers">
-                <span>Explore ACES Careers</span>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+              <a class="eco-btn eco-btn-primary" id="eco-cta-careers" href="https://careers.acesintelligence.xyz" data-magnetic="">
+                <span>Visit ACES Careers</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9"/></svg>
               </a>
-              <a class="eco-btn eco-btn-secondary" id="eco-cta-careers-portal" href="https://careers.acesintelligence.xyz/careers">
-                <span>Careers Portal</span>
+              <a class="eco-btn eco-btn-secondary" id="eco-cta-careers-board" href="https://careers.acesintelligence.xyz/careers">
+                <span>Open Roles</span>
               </a>
             </div>
           </article>
@@ -267,7 +302,7 @@
     <!-- How It Fits Together -->
     <section class="eco-structure" aria-labelledby="eco-structure-heading">
       <div class="shell">
-        <div class="eco-section-head">
+        <div class="eco-section-head" data-reveal="">
           <div>
             <div class="eyebrow">02 / How it connects</div>
             <h2 id="eco-structure-heading">Built around one <span class="serif">clear homepage.</span></h2>
@@ -276,36 +311,36 @@
         </div>
 
         <div class="eco-pillars">
-          <article class="eco-pillar">
+          <article class="eco-pillar" data-reveal="" data-delay="0" data-tilt="">
             <span class="eco-pillar-num">[ HOME ]</span>
             <h3>ACES Intelligence</h3>
             <p>The flagship homepage for everything ACES—connecting AI data annotation, model evaluation, and the full ecosystem directory.</p>
           </article>
-          <article class="eco-pillar">
+          <article class="eco-pillar" data-reveal="" data-delay="70" data-tilt="">
             <span class="eco-pillar-num">[ 01 ]</span>
             <h3>ACES Business</h3>
             <p>End-to-end operational websites and software systems for booking, retail POS, payroll, and wholesale B2B commerce.</p>
           </article>
-          <article class="eco-pillar">
+          <article class="eco-pillar" data-reveal="" data-delay="140" data-tilt="">
             <span class="eco-pillar-num">[ 02 ]</span>
             <h3>ACES Agents</h3>
             <p>Purpose-built digital employees that automate customer requests, operations, and internal coordination using your chosen AI provider.</p>
           </article>
-          <article class="eco-pillar">
+          <article class="eco-pillar" data-reveal="" data-delay="210" data-tilt="">
             <span class="eco-pillar-num">[ 03 ]</span>
             <h3>ACES Careers</h3>
             <p>Live open roles and direct specialist applications for domain experts, evaluators, annotators, and engineers worldwide.</p>
           </article>
         </div>
 
-        <p class="eco-roadmap-note">Additional websites and platforms across the ACES Intelligence Ecosystem will be added to this directory as they launch.</p>
+        <p class="eco-roadmap-note" data-reveal="" data-delay="120">Additional websites and platforms across the ACES Intelligence Ecosystem will be added to this directory as they launch.</p>
       </div>
     </section>
 
     <!-- Bottom CTA -->
     <section class="eco-cta-section" aria-labelledby="eco-cta-heading">
       <div class="shell">
-        <div class="eco-cta-card">
+        <div class="eco-cta-card" data-reveal="">
           <div>
             <div class="eyebrow">03 / Work with ACES</div>
             <h2 id="eco-cta-heading">Need a tailored solution <span class="serif">for your team?</span></h2>
@@ -313,7 +348,7 @@
           <div>
             <p>Whether you need specialist AI evaluation, a custom business platform, dedicated AI agents, or to join our specialist team, start with ACES Intelligence.</p>
             <div class="eco-cta-actions">
-              <a class="eco-btn eco-btn-light" href="/inquiry">Send a project inquiry</a>
+              <a class="eco-btn eco-btn-light" href="/inquiry" data-magnetic="">Send a project inquiry</a>
               <a class="eco-cta-link" href="/">Return to main homepage</a>
             </div>
           </div>

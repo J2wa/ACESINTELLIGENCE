@@ -28,7 +28,7 @@ img,svg{display:block;max-width:100%}
 .skip-link:focus{transform:none}
 
 /* ---------- Layout primitives ---------- */
-.shell{max-width:1320px;margin:0 auto;padding:0 clamp(20px,4vw,48px)}
+.shell{max-width:1240px;margin:0 auto;padding:0 clamp(20px,4vw,40px)}
 .section{position:relative;padding:clamp(88px,11vw,148px) 0}
 .textured{position:relative;isolation:isolate}
 .textured:after{content:'';position:absolute;inset:0;z-index:-1;background-image:var(--noise);opacity:.05;pointer-events:none;mix-blend-mode:multiply}

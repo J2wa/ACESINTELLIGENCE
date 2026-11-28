@@ -23,115 +23,12 @@
   transform: none;
 }
 
-/* ---------- Unified ACES Intelligence Ecosystem Bar ---------- */
-.aces-eco-bar {
-  background: #091326;
-  color: #c7d4ea;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  font-size: 12px;
-}
-
-.aces-eco-bar__inner {
-  max-width: 1320px;
-  margin: 0 auto;
-  padding: 4px clamp(20px, 4vw, 48px);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  min-height: 40px;
-}
-
-.aces-eco-bar__brand {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  color: #e2ecff;
-  text-decoration: none;
-  white-space: nowrap;
-  padding: 3px 6px 3px 2px;
-  border-radius: 8px;
-  transition: color 0.16s ease;
-}
-
-.aces-eco-bar__brand:hover {
-  color: #fff;
-}
-
-.aces-eco-bar__logo {
-  display: inline-block;
-  flex-shrink: 0;
-  --aces-size: 24px;
-}
-
-.aces-eco-bar__brand-name {
-  font-family: var(--mono);
-  font-size: 10.5px;
-  font-weight: 600;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: #9bb0d4;
-  transition: color 0.16s ease;
-}
-
-.aces-eco-bar__brand:hover .aces-eco-bar__brand-name {
-  color: #fff;
-}
-
-.aces-eco-bar__tabs {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.aces-eco-tab {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 11px;
-  border-radius: 999px;
-  font-family: var(--display);
-  font-size: 11.5px;
-  font-weight: 700;
-  color: #bdd0ee;
-  border: 1px solid transparent;
-  transition: background-color 0.16s ease, color 0.16s ease, border-color 0.16s ease;
-  white-space: nowrap;
-}
-
-.aces-eco-tab:hover {
-  background: rgba(255, 255, 255, 0.09);
-  color: #fff;
-}
-
-.aces-eco-tab.is-current {
-  background: rgba(47, 123, 255, 0.22);
-  border-color: rgba(125, 176, 255, 0.45);
-  color: #fff;
-}
-
-.aces-eco-tab__dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #60a5fa;
-  flex-shrink: 0;
-}
-
-/* Make the shared ACES header sticky directly below the ecosystem bar */
-body.page-careers .aces-header {
-  position: sticky;
-  top: 0;
-  inset: auto;
-}
-
 /* ---------- Hero ---------- */
 .careers-hero {
   position: relative;
   isolation: isolate;
   overflow: hidden;
-  padding: clamp(52px, 7vw, 92px) 0 clamp(48px, 6vw, 72px);
+  padding: calc(76px + clamp(52px, 7vw, 92px)) 0 clamp(48px, 6vw, 72px);
   background: linear-gradient(180deg, #f2f6ff 0%, var(--paper) 72%, #fff 100%);
   border-bottom: 1px solid var(--line);
 }

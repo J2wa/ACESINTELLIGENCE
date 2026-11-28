@@ -25,7 +25,7 @@ button{font:inherit;color:inherit}
 ::selection{background:var(--blue);color:#fff}
 :focus-visible{outline:2px solid var(--blue);outline-offset:3px}
 
-.shell{max-width:1320px;margin:0 auto;padding:0 clamp(20px,4vw,48px)}
+.shell{max-width:1240px;margin:0 auto;padding:0 clamp(20px,4vw,40px)}
 .eyebrow{display:inline-flex;align-items:center;gap:10px;font:500 12px/1.4 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--blue)}
 .eyebrow:before{content:none}
 .label{display:block;font:500 11.5px/1.4 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--muted-2);margin-bottom:10px}
