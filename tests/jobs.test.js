@@ -193,7 +193,14 @@ test('all ACES Intelligence HTML pages use the new vector logo, favicon, and Eco
     assert.match(html, /<aces-logo\b[^>]*class="aces-logo-mark"/, `${page} uses interactive header logo`);
     assert.match(html, /<aces-logo\b[^>]*class="aces-logo-footer"/, `${page} uses interactive footer logo`);
     assert.doesNotMatch(html, /class="aces-mark"/, `${page} no longer uses placeholder A. mark`);
-    assert.doesNotMatch(html, /class="aces-eco-bar/, `${page} does not render the sub-site top ecosystem bar`);
+    assert.doesNotMatch(html, /aces-eco-tab__badge/, `${page} does not render redundant HOME badge`);
+    if (page === 'careers.html') {
+      assert.match(html, /class="aces-eco-bar"/, 'careers.html renders the ACES Ecosystem bar');
+      assert.match(html, /class="aces-eco-bar__brand"/, 'careers.html has clickable ACES logo in ecosystem bar');
+      assert.match(html, /ACES Careers/, 'careers.html shows ACES Careers in ecosystem bar');
+    } else {
+      assert.doesNotMatch(html, /class="aces-eco-bar/, `${page} does not render the sub-site top ecosystem bar`);
+    }
     assert.match(html, /\/ecosystem/, `${page} links to the dedicated Ecosystem page`);
     assert.match(html, /https:\/\/business\.acesintelligence\.xyz/, `${page} links to ACES Business`);
     assert.match(html, /https:\/\/agents\.acesintelligence\.xyz/, `${page} links to ACES Agents`);
@@ -201,6 +208,7 @@ test('all ACES Intelligence HTML pages use the new vector logo, favicon, and Eco
   const ecosystemHtml = readFileSync(new URL('../public/ecosystem.html', import.meta.url), 'utf8');
   assert.match(ecosystemHtml, /ACES Business/, 'ecosystem.html showcases ACES Business');
   assert.match(ecosystemHtml, /ACES Agents/, 'ecosystem.html showcases ACES Agents');
+  assert.match(ecosystemHtml, /ACES Careers/, 'ecosystem.html showcases ACES Careers');
   assert.match(ecosystemHtml, /Main Homepage/i, 'ecosystem.html clearly presents ACES Intelligence as the main homepage');
   const careersHtml = readFileSync(new URL('../public/careers.html', import.meta.url), 'utf8');
   const careersCss = readFileSync(new URL('../public/careers.css', import.meta.url), 'utf8');

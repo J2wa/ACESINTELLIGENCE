@@ -359,15 +359,15 @@
 
 .eco-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: clamp(20px, 2.8vw, 32px);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(18px, 2.2vw, 28px);
 }
 
 .site-card {
   position: relative;
   display: flex;
   flex-direction: column;
-  padding: clamp(28px, 3.6vw, 42px);
+  padding: clamp(24px, 3vw, 34px);
   border-radius: 26px;
   background: #fff;
   border: 1px solid var(--line);
@@ -442,7 +442,7 @@
 .site-card h3 {
   margin: 0 0 6px;
   font-family: var(--display);
-  font-size: clamp(26px, 2.5vw, 34px);
+  font-size: clamp(24px, 2.2vw, 30px);
   font-weight: 700;
   letter-spacing: -0.03em;
   line-height: 1.1;
@@ -453,45 +453,46 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  margin-bottom: 18px;
-  font: 500 13px/1.3 var(--mono);
+  margin-bottom: 16px;
+  font: 500 12.5px/1.3 var(--mono);
   color: var(--blue);
+  overflow-wrap: anywhere;
 }
 
 .site-card-desc {
-  margin: 0 0 24px;
-  font-size: 16px;
-  line-height: 1.65;
+  margin: 0 0 22px;
+  font-size: 15.5px;
+  line-height: 1.62;
   color: var(--muted);
 }
 
 .site-features {
   list-style: none;
-  margin: 0 0 28px;
+  margin: 0 0 26px;
   padding: 18px 0 0;
   border-top: 1px solid var(--line);
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 13px;
 }
 
 .site-features li {
   display: grid;
-  grid-template-columns: 20px minmax(0, 1fr);
-  gap: 12px;
+  grid-template-columns: 18px minmax(0, 1fr);
+  gap: 11px;
   align-items: start;
 }
 
 .site-features svg {
-  width: 18px;
-  height: 18px;
+  width: 17px;
+  height: 17px;
   margin-top: 2px;
   color: var(--blue);
 }
 
 .site-features strong {
   display: block;
-  font-size: 14.5px;
+  font-size: 14px;
   font-weight: 700;
   line-height: 1.35;
   color: var(--navy);
@@ -508,7 +509,7 @@
   margin-top: auto;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   flex-wrap: wrap;
 }
 
@@ -528,15 +529,15 @@
 
 .eco-pillars {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
 }
 
 .eco-pillar {
   background: #fff;
   border: 1px solid var(--line);
   border-radius: 20px;
-  padding: 28px 26px;
+  padding: 26px 22px;
 }
 
 .eco-pillar-num {
@@ -550,7 +551,7 @@
 .eco-pillar h3 {
   margin: 0 0 8px;
   font-family: var(--display);
-  font-size: 20px;
+  font-size: 19px;
   font-weight: 700;
   letter-spacing: -0.02em;
   color: var(--navy);
@@ -558,7 +559,7 @@
 
 .eco-pillar p {
   margin: 0;
-  font-size: 15px;
+  font-size: 14.5px;
   line-height: 1.6;
   color: var(--muted);
 }
@@ -658,12 +659,20 @@
 }
 
 /* ---------- Responsive ---------- */
+@media (max-width: 1120px) {
+  .eco-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .eco-pillars {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 960px) {
   .eco-hero-bottom,
   .eco-hub-card,
   .eco-section-head,
-  .eco-grid,
-  .eco-pillars,
   .eco-cta-card {
     grid-template-columns: 1fr;
   }
@@ -674,6 +683,13 @@
 
   .eco-section-head p {
     justify-self: start;
+  }
+}
+
+@media (max-width: 760px) {
+  .eco-grid,
+  .eco-pillars {
+    grid-template-columns: 1fr;
   }
 }
 
